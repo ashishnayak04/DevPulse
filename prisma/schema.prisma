@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum EndpointStatus {
+  UP
+  DOWN
+}
+
+enum AlertType {
+  DOWN
+  UP
+}
+
+// ─── User ────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String
+  refreshToken String?
+  createdAt    DateTime @default(now())
+
+  endpoints      Endpoint[]
+  webhookConfigs WebhookConfig[]
+
+  @@index([email])
+  @@index([username])
+}
+
+// ─── Endpoint ────────────────────────────────────────────
+
+model Endpoint {
+  id                  String         @id @default(uuid())
+  userId              String
+  name                String
+  url                 String
+  intervalMs          Int            @default(60000)
+  isActive            Boolean        @default(true)
+  consecutiveFailures Int            @default(0)
+  status              EndpointStatus @default(UP)
+  createdAt           DateTime       @default(now())
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pingLogs PingLog[]
+  alerts   Alert[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ─── Ping Log ────────────────────────────────────────────
+
+model PingLog {
+  id             String   @id @default(uuid())
+  endpointId     String
+  statusCode     Int?
+  responseTimeMs Float
+  isUp           Boolean
+  checkedAt      DateTime @default(now())
+
+  endpoint Endpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([endpointId, checkedAt])
+  @@index([checkedAt])
+}
+
+// ─── Alert ───────────────────────────────────────────────
+
+model Alert {
+  id         String    @id @default(uuid())
+  endpointId String
+  type       AlertType
+  sentAt     DateTime  @default(now())
+
+  endpoint Endpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([endpointId])
+}
+
+// ─── Webhook Config ──────────────────────────────────────
+
+model WebhookConfig {
+  id     String @id @default(uuid())
+  userId String
+  url    String
+  secret String
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([userId])
+}
+
+// ─── Webhook Delivery ────────────────────────────────────
+
+model WebhookDelivery {
+  id              String   @id @default(uuid())
+  webhookConfigId String
+  payload         Json
+  responseStatus  Int?
+  attempt         Int      @default(1)
+  deliveredAt     DateTime @default(now())
+  success         Boolean  @default(false)
+
+  webhookConfig WebhookConfig @relation(fields: [webhookConfigId], references: [id], onDelete: Cascade)
+
+  @@index([webhookConfigId])
+}
