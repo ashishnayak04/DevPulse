@@ -28,33 +28,24 @@
 | Auth        | bcrypt + JWT (access/refresh tokens) |
 | Email       | Nodemailer (SMTP) |
 | Scheduler   | node-cron |
-| Infra       | Docker Compose |
+| Infra       | Native Node (PM2, Render, Fly.io, Railway) |
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
-- Docker & Docker Compose
+- PostgreSQL 16+
+- Redis 7+
 
-### 1. Clone & install
+### 1. Install dependencies
 
 ```bash
-git clone https://github.com/ashishnayak04/devpulse.git
-cd devpulse
 npm install
 cd client && npm install && cd ..
 ```
 
-### 2. Start infrastructure
-
-```bash
-docker compose up -d
-```
-
-This starts PostgreSQL on `:5432` and Redis on `:6379`.
-
-### 3. Configure environment
+### 2. Configure environment
 
 Copy `.env` (provided) or create your own:
 
@@ -74,13 +65,13 @@ FRONTEND_URL=http://localhost:5173
 NODE_ENV=development
 ```
 
-### 4. Database setup
+### 3. Database setup
 
 ```bash
 npx prisma migrate dev --name init
 ```
 
-### 5. Start the app
+### 4. Start the app
 
 **Backend:**
 ```bash
@@ -124,14 +115,25 @@ The Express server serves the built React app from `client/dist`.
 
 ```
 src/
-├── controllers/     # Route handlers
-├── jobs/            # Cron scheduler
-├── middleware/      # Auth, error handling
-├── routes/          # Express route definitions
-├── services/        # Business logic
-├── utils/           # Prisma client, helpers
-├── workers/         # BullMQ workers (ping, alert)
-└── index.js         # App entry point
+├── server.js          # Entry point — boots HTTP server, socket, workers, cron
+├── app.js             # Express app factory (routes, middleware, static)
+├── config/            # Centralized environment configuration
+├── constants/         # App-wide constants (rate limits, intervals, retention)
+├── lib/               # Infrastructure singletons (prisma, redis, logger, jwt)
+├── middleware/        # authenticate, error-handler, rate-limiters, validate
+├── modules/           # Feature modules (controller + routes + service + validators)
+│   ├── auth/
+│   ├── endpoints/
+│   ├── stats/
+│   ├── status/
+│   └── activity/
+├── queues/            # BullMQ queue definitions + job scheduling
+├── jobs/              # Cron jobs (data retention)
+├── workers/           # BullMQ workers (ping, alert)
+├── services/          # Cross-cutting services (email, webhook, alert)
+├── socket/            # Socket.io server setup
+├── templates/         # Email templates
+└── utils/             # Small pure helpers (hmac)
 
 client/
 └── src/

@@ -1,17 +1,62 @@
 const { Worker } = require('bullmq');
-const prisma = require('../utils/prisma');
 const axios = require('axios');
-const redis = require('../utils/redis');
-const { alertQueue } = require('../jobs/scheduler');
+const prisma = require('../lib/prisma');
+const redis = require('../lib/redis');
+const logger = require('../lib/logger');
+const constants = require('../constants');
+const { alertQueue } = require('../queues/alert.queue');
+const { invalidateStatusCache } = require('../modules/status/status.service');
 
-let io = null;
+const SCOPE = 'PingWorker';
 
-/**
- * Initialize the ping worker with Socket.io instance.
- */
-function initPingWorker(socketIo) {
-  io = socketIo;
+async function performPing(url) {
+  const startTime = Date.now();
 
+  try {
+    const response = await axios.get(url, {
+      timeout: constants.monitoring.pingTimeoutMs,
+      validateStatus: () => true,
+    });
+    return {
+      statusCode: response.status,
+      responseTimeMs: Date.now() - startTime,
+      isUp: response.status >= 200 && response.status < 400,
+    };
+  } catch (err) {
+    logger.debug(SCOPE, `Ping failed for ${url}: ${err.message}`);
+    return {
+      statusCode: null,
+      responseTimeMs: Date.now() - startTime,
+      isUp: false,
+    };
+  }
+}
+
+async function enqueueStateTransitionAlert({ endpoint, userId, type, responseTimeMs, failureCount }) {
+  await alertQueue.add('alert', {
+    endpointId: endpoint.id,
+    userId,
+    type,
+    endpointName: endpoint.name,
+    endpointUrl: endpoint.url,
+    responseTimeMs,
+    failureCount,
+  });
+}
+
+function emitPingResult(io, userId, result) {
+  if (!io) return;
+  io.to(`user:${userId}`).emit('ping:result', result);
+}
+
+async function invalidateUserStatusCache(userId) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+  if (user) {
+    await invalidateStatusCache(user.username);
+  }
+}
+
+function initPingWorker(io) {
   const worker = new Worker(
     'pingQueue',
     async (job) => {
@@ -19,43 +64,17 @@ function initPingWorker(socketIo) {
 
       const endpoint = await prisma.endpoint.findUnique({ where: { id: endpointId } });
       if (!endpoint || !endpoint.isActive) {
-        console.log(`[PingWorker] Endpoint ${endpointId} is inactive or deleted, skipping`);
+        logger.info(SCOPE, `Endpoint ${endpointId} is inactive or deleted, skipping`);
         return;
       }
 
-      let statusCode = null;
-      let responseTimeMs = 0;
-      let isUp = false;
-
-      const startTime = Date.now();
-
-      try {
-        const response = await axios.get(url, {
-          timeout: 10000,
-          validateStatus: () => true, // Accept any status code
-        });
-        responseTimeMs = Date.now() - startTime;
-        statusCode = response.status;
-        isUp = statusCode >= 200 && statusCode < 400;
-      } catch (err) {
-        responseTimeMs = Date.now() - startTime;
-        isUp = false;
-        console.log(`[PingWorker] Ping failed for ${url}: ${err.message}`);
-      }
-
-      // Log to PingLog
+      const { statusCode, responseTimeMs, isUp } = await performPing(url);
       const checkedAt = new Date();
+
       await prisma.pingLog.create({
-        data: {
-          endpointId,
-          statusCode,
-          responseTimeMs,
-          isUp,
-          checkedAt,
-        },
+        data: { endpointId, statusCode, responseTimeMs, isUp, checkedAt },
       });
 
-      // Update endpoint status
       let newFailures = endpoint.consecutiveFailures;
       if (isUp) {
         newFailures = 0;
@@ -63,44 +82,21 @@ function initPingWorker(socketIo) {
 
         await prisma.endpoint.update({
           where: { id: endpointId },
-          data: {
-            consecutiveFailures: 0,
-            status: 'UP',
-          },
+          data: { consecutiveFailures: 0, status: 'UP' },
         });
 
-        // Recovery alert: was DOWN, now UP
         if (previousStatus === 'DOWN') {
-          await alertQueue.add('alert', {
-            endpointId,
-            userId,
-            type: 'UP',
-            endpointName: endpoint.name,
-            endpointUrl: endpoint.url,
-            responseTimeMs,
-            failureCount: 0,
-          });
-          console.log(`[PingWorker] ✅ ${endpoint.name} recovered — alert queued`);
+          await enqueueStateTransitionAlert({ endpoint, userId, type: 'UP', responseTimeMs, failureCount: 0 });
+          logger.info(SCOPE, `${endpoint.name} recovered — alert queued`);
         }
       } else {
         newFailures = endpoint.consecutiveFailures + 1;
-
         const updateData = { consecutiveFailures: newFailures };
 
-        // Mark DOWN after 3 consecutive failures
-        if (newFailures >= 3 && endpoint.status === 'UP') {
+        if (newFailures >= constants.monitoring.consecutiveFailuresThreshold && endpoint.status === 'UP') {
           updateData.status = 'DOWN';
-
-          await alertQueue.add('alert', {
-            endpointId,
-            userId,
-            type: 'DOWN',
-            endpointName: endpoint.name,
-            endpointUrl: endpoint.url,
-            responseTimeMs,
-            failureCount: newFailures,
-          });
-          console.log(`[PingWorker] 🔴 ${endpoint.name} is DOWN (${newFailures} failures) — alert queued`);
+          await enqueueStateTransitionAlert({ endpoint, userId, type: 'DOWN', responseTimeMs, failureCount: newFailures });
+          logger.info(SCOPE, `${endpoint.name} is DOWN (${newFailures} failures) — alert queued`);
         }
 
         await prisma.endpoint.update({
@@ -109,41 +105,34 @@ function initPingWorker(socketIo) {
         });
       }
 
-      // Emit Socket.io event to user's room
-      if (io) {
-        io.to(`user:${userId}`).emit('ping:result', {
-          endpointId,
-          status: isUp ? 'UP' : (newFailures >= 3 ? 'DOWN' : 'UP'),
-          responseTimeMs,
-          statusCode,
-          isUp,
-          checkedAt: checkedAt.toISOString(),
-        });
-      }
+      emitPingResult(io, userId, {
+        endpointId,
+        status: isUp ? 'UP' : newFailures >= constants.monitoring.consecutiveFailuresThreshold ? 'DOWN' : 'UP',
+        responseTimeMs,
+        statusCode,
+        isUp,
+        checkedAt: checkedAt.toISOString(),
+      });
 
-      // Invalidate Redis status page cache for this user
-      const user = await prisma.user.findUnique({ where: { id: userId } });
-      if (user) {
-        await redis.del(`status:${user.username}`);
-      }
+      await invalidateUserStatusCache(userId);
 
-      console.log(`[PingWorker] ${endpoint.name} → ${isUp ? '✅' : '❌'} ${statusCode || 'ERR'} (${responseTimeMs}ms)`);
+      logger.info(SCOPE, `${endpoint.name} → ${isUp ? 'UP' : 'DOWN'} ${statusCode || 'ERR'} (${responseTimeMs}ms)`);
     },
     {
       connection: redis,
-      concurrency: 10,
+      concurrency: constants.workers.pingConcurrency,
     }
   );
 
   worker.on('failed', (job, err) => {
-    console.error(`[PingWorker] Job ${job?.id} failed:`, err.message);
+    logger.error(SCOPE, `Job ${job?.id} failed: ${err.message}`);
   });
 
   worker.on('error', (err) => {
-    console.error('[PingWorker] Worker error:', err.message);
+    logger.error(SCOPE, `Worker error: ${err.message}`);
   });
 
-  console.log('[PingWorker] Started');
+  logger.info(SCOPE, 'Started');
   return worker;
 }
 

@@ -2,17 +2,16 @@
   "name": "devpulse",
   "version": "1.0.0",
   "description": "Production-grade API health monitoring SaaS backend",
-  "main": "src/index.js",
+  "main": "src/server.js",
   "scripts": {
-    "dev": "nodemon src/index.js",
-    "start": "node src/index.js",
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "build": "npm --prefix client install && npm --prefix client run build",
     "db:migrate": "npx prisma migrate dev --name init",
+    "db:migrate:deploy": "npx prisma migrate deploy",
     "db:push": "npx prisma db push",
     "db:generate": "npx prisma generate",
-    "db:studio": "npx prisma studio",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "setup": "docker-compose up -d && timeout 5 && npx prisma migrate dev --name init"
+    "db:studio": "npx prisma studio"
   },
   "keywords": ["api", "monitoring", "health-check", "uptime", "saas"],
   "author": "",

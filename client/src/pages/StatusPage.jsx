@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { ShieldCheck, ShieldAlert, ShieldX, Clock, Menu, Activity, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, ShieldX, Clock, Activity as PulseIcon, Menu } from 'lucide-react';
 import { api } from '../api';
 import { Sidebar } from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
+import { Card } from '../components/ui/Card';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Spinner } from '../components/ui/Spinner';
 
 export const StatusPage = () => {
   const { username } = useParams();
@@ -30,197 +33,86 @@ export const StatusPage = () => {
     return () => clearInterval(interval);
   }, [username]);
 
-  if (loading && !data) return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {isAuthenticated && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px' }}>
-        <div className="spin" style={{ width: 48, height: 48, border: '3px solid var(--border)', borderTopColor: '#a78bfa', borderRadius: '50%' }} />
-      </div>
-    </div>
-  );
-
-  if (error) return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {isAuthenticated && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
-        <div style={{
-          textAlign: 'center',
-          padding: '32px 40px', borderRadius: 'var(--radius-lg)',
-          background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)',
-          color: '#f87171'
-        }}>
-          {error}
+  if (loading && !data) {
+    return (
+      <div className="app-shell">
+        {isAuthenticated && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
+        <div className="full-center" style={{ flex: 1 }}>
+          <Spinner size="lg" />
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="app-shell">
+        {isAuthenticated && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
+        <main style={{ flex: 1 }} className={isAuthenticated ? 'main-content' : ''}>
+          <div className="sp-container">
+            <Card
+              style={{
+                padding: 28,
+                textAlign: 'center',
+                color: 'var(--danger-text)',
+                background: 'var(--danger-soft)',
+                borderColor: 'var(--danger-border)',
+              }}
+            >
+              {error}
+            </Card>
+          </div>
+        </main>
+      </div>
+    );
+  }
   if (!data) return null;
 
-  const downCount = data.endpoints.filter(ep => ep.status === 'DOWN').length;
-  let overallStatus = 'operational';
-  let bannerBg = 'rgba(16, 185, 129, 0.08)';
-  let bannerBorder = 'rgba(16, 185, 129, 0.2)';
-  let bannerColor = '#34d399';
+  const downCount = data.endpoints.filter((ep) => ep.status === 'DOWN').length;
+  let bannerClass = 'sp-banner--up';
   let BannerIcon = ShieldCheck;
   let bannerText = 'All systems operational';
-  let bannerGradient = 'linear-gradient(135deg, rgba(16,185,129,0.05), transparent)';
 
   if (downCount > 0 && downCount < data.endpoints.length) {
-    overallStatus = 'partial';
-    bannerBg = 'rgba(245, 158, 11, 0.08)';
-    bannerBorder = 'rgba(245, 158, 11, 0.2)';
-    bannerColor = '#fbbf24';
+    bannerClass = 'sp-banner--partial';
     BannerIcon = ShieldAlert;
     bannerText = 'Partial system outage';
-    bannerGradient = 'linear-gradient(135deg, rgba(245,158,11,0.05), transparent)';
   } else if (downCount > 0 && downCount === data.endpoints.length) {
-    overallStatus = 'major';
-    bannerBg = 'rgba(239, 68, 68, 0.08)';
-    bannerBorder = 'rgba(239, 68, 68, 0.2)';
-    bannerColor = '#f87171';
+    bannerClass = 'sp-banner--major';
     BannerIcon = ShieldX;
     bannerText = 'Major system outage';
-    bannerGradient = 'linear-gradient(135deg, rgba(239,68,68,0.05), transparent)';
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div className="app-shell">
       {isAuthenticated && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
       <main style={{ flex: 1 }} className={isAuthenticated ? 'main-content' : ''}>
-        <style>{`
-          .sp-container {
-            max-width: 860px; margin: 0 auto;
-            padding: ${isAuthenticated ? '0' : '60px 24px'};
-          }
-          .sp-header {
-            text-align: center; margin-bottom: 48px;
-          }
-          .sp-header-icon {
-            width: 72px; height: 72px; border-radius: 24px;
-            background: var(--accent-gradient);
-            display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 24px;
-            box-shadow: 0 12px 40px rgba(139, 92, 246, 0.3);
-          }
-          .sp-header h1 {
-            font-size: 36px; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px;
-          }
-          .sp-header p {
-            color: var(--text-muted); font-size: 15px;
-          }
-          .sp-banner {
-            position: relative;
-            padding: 28px 32px; border-radius: var(--radius-lg);
-            display: flex; align-items: center; gap: 20px;
-            margin-bottom: 40px; overflow: hidden;
-            background: ${bannerBg};
-            border: 1px solid ${bannerBorder};
-          }
-          .sp-banner-glow {
-            position: absolute; inset: 0;
-            background: ${bannerGradient};
-            pointer-events: none;
-          }
-          .sp-banner-icon {
-            width: 56px; height: 56px; border-radius: 16px;
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0; position: relative;
-            background: ${bannerColor}15;
-            color: ${bannerColor};
-          }
-          .sp-banner-text { position: relative; }
-          .sp-banner-text h2 {
-            font-size: 22px; font-weight: 700; color: ${bannerColor};
-          }
-          .sp-banner-text p {
-            font-size: 13px; color: var(--text-muted); margin-top: 4px;
-          }
-          .sp-list-header {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 0 4px; margin-bottom: 16px;
-          }
-          .sp-list-title {
-            font-size: 15px; font-weight: 600; color: var(--text-secondary);
-          }
-          .sp-list-count {
-            font-size: 13px; color: var(--text-muted);
-          }
-          .sp-endpoint {
-            padding: 22px 28px; display: flex; align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid var(--border);
-            transition: background 0.2s;
-          }
-          .sp-endpoint:last-child { border-bottom: none; }
-          .sp-endpoint:hover { background: rgba(139, 92, 246, 0.02); }
-          .sp-endpoint-name {
-            font-size: 16px; font-weight: 600; margin-bottom: 4px;
-          }
-          .sp-endpoint-meta {
-            display: flex; align-items: center; gap: 12px;
-            font-size: 12px; color: var(--text-muted);
-          }
-          .sp-endpoint-badge {
-            display: flex; align-items: center; gap: 8px;
-            padding: 8px 16px; border-radius: 100px;
-            font-size: 13px; font-weight: 500; flex-shrink: 0;
-          }
-          .sp-endpoint-badge.up {
-            background: rgba(16,185,129,0.08); color: #34d399;
-            border: 1px solid rgba(16,185,129,0.15);
-          }
-          .sp-endpoint-badge.down {
-            background: rgba(239,68,68,0.08); color: #f87171;
-            border: 1px solid rgba(239,68,68,0.15);
-          }
-          .sp-footer {
-            text-align: center; margin-top: 48px;
-            padding: 24px; color: var(--text-muted); font-size: 13px;
-          }
-          .sp-footer-logo { font-weight: 700; }
-          .sp-mobile-header {
-            display: flex; align-items: center; gap: 12px; margin-bottom: 24px;
-          }
-          .sp-empty {
-            padding: 48px; text-align: center; color: var(--text-muted);
-          }
-        `}</style>
-
         {isAuthenticated && (
-          <div className="sp-mobile-header">
-            <button
-              className="md-hidden"
-              onClick={() => setSidebarOpen(true)}
-              style={{
-                background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)',
-                color: 'var(--text-primary)', cursor: 'pointer', padding: '8px',
-                borderRadius: 'var(--radius-sm)', display: 'flex'
-              }}
-            >
+          <div style={{ marginBottom: 20 }}>
+            <button className="icon-btn mobile-only" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
               <Menu size={20} />
             </button>
           </div>
         )}
 
-        <div className="sp-container animate-fade-in">
-          <div className="sp-header">
-            <div className="sp-header-icon">
-              <Activity size={32} color="white" />
+        <div className={`sp-container ${isAuthenticated ? '' : 'sp-container--public'}`}>
+          <div className="sp-header animate-fade-in">
+            <div className="sp-header__logo">
+              <PulseIcon size={28} />
             </div>
             <h1>
-              <span className="text-gradient">{data.username}</span>'s Status
+              <span className="logo-word--accent">{data.username}</span>'s Status
             </h1>
             <p>Real-time status overview of all monitored services</p>
           </div>
 
-          <div className="sp-banner animate-scale-in">
-            <div className="sp-banner-glow" />
-            <div className="sp-banner-icon">
-              <BannerIcon size={28} />
-            </div>
-            <div className="sp-banner-text">
-              <h2>{bannerText}</h2>
-              <p>
+          <div className={`sp-banner ${bannerClass} animate-scale-in`}>
+            <span className="sp-banner__icon">
+              <BannerIcon size={26} />
+            </span>
+            <div>
+              <div className="sp-banner__title">{bannerText}</div>
+              <p className="sp-banner__subtitle">
                 {downCount > 0
                   ? `${downCount} of ${data.endpoints.length} endpoints experiencing issues`
                   : 'All endpoints are running smoothly'}
@@ -228,29 +120,31 @@ export const StatusPage = () => {
             </div>
           </div>
 
-          <div className="glass-card" style={{ overflow: 'hidden' }}>
-            <div className="sp-list-header" style={{ padding: '20px 28px 12px' }}>
-              <span className="sp-list-title">
-                <Activity size={15} style={{ display: 'inline', marginRight: 6 }} />
+          <Card style={{ overflow: 'hidden' }}>
+            <div className="sp-list__header">
+              <span className="sp-list__title">
+                <PulseIcon size={15} />
                 Endpoints
               </span>
-              <span className="sp-list-count">
-                {data.endpoints.filter(ep => ep.status === 'UP').length}/{data.endpoints.length} operational
+              <span className="sp-list__count">
+                {data.endpoints.filter((ep) => ep.status === 'UP').length}/{data.endpoints.length} operational
               </span>
             </div>
 
             {data.endpoints.length === 0 ? (
-              <div className="sp-empty">
-                No public endpoints configured.
-              </div>
+              <EmptyState
+                icon={PulseIcon}
+                title="No public endpoints"
+                description="This user has not configured any public endpoints yet."
+              />
             ) : (
-              data.endpoints.map((ep, i) => {
+              data.endpoints.map((ep) => {
                 const isUp = ep.status === 'UP';
                 return (
                   <div key={ep.id} className="sp-endpoint">
-                    <div>
-                      <div className="sp-endpoint-name">{ep.name}</div>
-                      <div className="sp-endpoint-meta">
+                    <div style={{ minWidth: 0 }}>
+                      <div className="sp-endpoint__name">{ep.name}</div>
+                      <div className="sp-endpoint__meta">
                         <span className="mono">{ep.url}</span>
                         <span>&middot;</span>
                         <Clock size={12} />
@@ -263,18 +157,18 @@ export const StatusPage = () => {
                         )}
                       </div>
                     </div>
-                    <div className={`sp-endpoint-badge ${isUp ? 'up' : 'down'}`}>
-                      <span className={`status-dot ${isUp ? 'status-up pulse' : 'status-down pulse'}`} style={{ width: 8, height: 8 }} />
+                    <span className={`sp-endpoint__badge ${isUp ? 'sp-endpoint__badge--up' : 'sp-endpoint__badge--down'}`}>
+                      <span className={`status-dot ${isUp ? 'status-dot--up' : 'status-dot--down'} status-dot--pulse`} />
                       {isUp ? 'Operational' : 'Down'}
-                    </div>
+                    </span>
                   </div>
                 );
               })
             )}
-          </div>
+          </Card>
 
           <div className="sp-footer">
-            Powered by <span className="sp-footer-logo"><span className="text-gradient">DevPulse</span></span>
+            Powered by <strong>DevPulse</strong>
           </div>
         </div>
       </main>

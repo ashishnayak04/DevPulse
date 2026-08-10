@@ -1,0 +1,40 @@
+app = "devpulse"
+
+kill_signal = "SIGTERM"
+kill_timeout = 5
+processes = []
+
+[build]
+  builder = "paketobuildpacks/builder-jammy-base"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "4000"
+
+[experimental]
+  auto_rollback = true
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 4000
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "5s"
+    path = "/api/health"
+    method = "GET"
+
+  [[services.concurrency]]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20

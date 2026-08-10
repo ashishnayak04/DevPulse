@@ -1,14 +1,10 @@
 const { ZodError } = require('zod');
 
-/**
- * Creates an Express middleware that validates req.body against a Zod schema.
- * Returns 400 with formatted validation errors on failure.
- */
 function validate(schema) {
   return (req, res, next) => {
     try {
       const parsed = schema.parse(req.body);
-      req.body = parsed; // Replace with parsed (coerced/transformed) values
+      req.body = parsed;
       next();
     } catch (err) {
       if (err instanceof ZodError) {
