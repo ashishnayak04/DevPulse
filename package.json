@@ -11,7 +11,8 @@
     "db:migrate:deploy": "npx prisma migrate deploy",
     "db:push": "npx prisma db push",
     "db:generate": "npx prisma generate",
-    "db:studio": "npx prisma studio"
+    "db:studio": "npx prisma studio",
+    "db:seed": "node prisma/seed.js"
   },
   "keywords": ["api", "monitoring", "health-check", "uptime", "saas"],
   "author": "",
@@ -38,5 +39,8 @@
   "devDependencies": {
     "nodemon": "^3.1.9",
     "prisma": "^6.9.0"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   }
 }

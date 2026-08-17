@@ -10,6 +10,7 @@ function generateTokens(user) {
     id: user.id,
     email: user.email,
     username: user.username,
+    role: user.role,
   });
 
   const refreshToken = signRefreshToken({ id: user.id });
@@ -59,6 +60,13 @@ async function login({ email, password }) {
     });
   }
 
+  if (!user.isActive) {
+    throw new HttpError('This account has been disabled. Contact the platform administrator.', {
+      statusCode: 403,
+      code: 'ACCOUNT_DISABLED',
+    });
+  }
+
   const tokens = generateTokens(user);
   await storeRefreshToken(user.id, tokens.refreshToken);
 
@@ -88,6 +96,13 @@ async function refresh(refreshToken) {
     });
   }
 
+  if (!user.isActive) {
+    throw new HttpError('This account has been disabled. Contact the platform administrator.', {
+      statusCode: 403,
+      code: 'ACCOUNT_DISABLED',
+    });
+  }
+
   const tokens = generateTokens(user);
   await storeRefreshToken(user.id, tokens.refreshToken);
 
@@ -109,7 +124,7 @@ async function storeRefreshToken(userId, refreshToken) {
 }
 
 function toPublicUser(user) {
-  return { id: user.id, email: user.email, username: user.username };
+  return { id: user.id, email: user.email, username: user.username, role: user.role, isActive: user.isActive };
 }
 
 module.exports = { register, login, refresh, logout, generateTokens };

@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const payload = token.split('.')[1];
       const decoded = JSON.parse(atob(payload));
-      return { id: decoded.id, email: decoded.email, username: decoded.username };
+      return { id: decoded.id, email: decoded.email, username: decoded.username, role: decoded.role };
     } catch (e) {
       return null;
     }
@@ -68,6 +68,7 @@ export const AuthProvider = ({ children }) => {
       user,
       accessToken,
       isAuthenticated: !!user,
+      isAdmin: user?.role === 'ADMIN',
       loading,
       login,
       register,

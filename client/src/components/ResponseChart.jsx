@@ -1,7 +1,7 @@
 import React from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
-export const ResponseChart = ({ data }) => {
+export const ResponseChart = ({ data, p95 }) => {
   const formatTime = (timeString) => {
     if (!timeString) return '';
     const date = new Date(timeString);
@@ -13,15 +13,17 @@ export const ResponseChart = ({ data }) => {
       return (
         <div
           style={{
-            background: 'var(--bg-surface-2)',
+            background: 'var(--bg-raised)',
             border: '1px solid var(--border-strong)',
-            padding: '10px 14px',
-            borderRadius: 'var(--radius-md)',
-            boxShadow: 'var(--shadow-lg)',
+            padding: '9px 13px',
+            borderRadius: 'var(--radius)',
+            boxShadow: 'var(--shadow-md)',
             fontSize: '12px',
           }}
         >
-          <p style={{ color: 'var(--text-muted)', marginBottom: 4 }}>{formatTime(label)}</p>
+          <p style={{ color: 'var(--text-muted)', marginBottom: 4, fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+            {formatTime(label)}
+          </p>
           <p style={{ color: 'var(--accent-text)', fontWeight: 700, fontSize: 16 }}>
             {payload[0].value} <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>ms</span>
           </p>
@@ -32,30 +34,17 @@ export const ResponseChart = ({ data }) => {
   };
 
   if (!data || data.length === 0) {
-    return (
-      <div
-        style={{
-          height: 280,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--text-muted)',
-          fontSize: 13.5,
-        }}
-      >
-        No response time data yet
-      </div>
-    );
+    return <div className="chart-empty">No response-time data yet — checks will appear here.</div>;
   }
 
   return (
     <div style={{ width: '100%', height: 280 }} className="animate-fade-in">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 10, right: 12, left: -14, bottom: 0 }}>
+        <AreaChart data={data} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
           <defs>
             <linearGradient id="colorRt" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.28} />
-              <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.22} />
+              <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -63,30 +52,48 @@ export const ResponseChart = ({ data }) => {
             dataKey="time"
             tickFormatter={formatTime}
             stroke="var(--text-muted)"
-            fontSize={11.5}
+            fontSize={11}
+            fontFamily="var(--font-mono)"
             tickLine={false}
             axisLine={false}
-            minTickGap={36}
+            minTickGap={40}
           />
           <YAxis
             stroke="var(--text-muted)"
-            fontSize={11.5}
+            fontSize={11}
+            fontFamily="var(--font-mono)"
             tickLine={false}
             axisLine={false}
-            domain={[0, (dataMax) => Math.max(dataMax * 1.2, 100)]}
+            width={56}
+            domain={[0, (dataMax) => Math.max(dataMax * 1.2, 200)]}
             tickFormatter={(value) => `${Math.round(value)}ms`}
           />
           <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--border-strong)' }} />
+          {p95 != null && p95 > 0 && (
+            <ReferenceLine
+              y={Math.round(p95)}
+              stroke="var(--warning)"
+              strokeDasharray="4 4"
+              label={{
+                value: `P95 ${Math.round(p95)}ms`,
+                position: 'insideBottomRight',
+                fill: 'var(--text-muted)',
+                fontSize: 10,
+                fontFamily: 'var(--font-mono)',
+              }}
+            />
+          )}
           <Area
             type="monotone"
             dataKey="responseTime"
-            stroke="#8b5cf6"
-            strokeWidth={2}
+            stroke="var(--accent)"
+            strokeWidth={1.8}
             fillOpacity={1}
             fill="url(#colorRt)"
             isAnimationActive={true}
+            animationDuration={400}
             dot={false}
-            activeDot={{ r: 4, fill: '#8b5cf6', stroke: 'var(--bg-surface)', strokeWidth: 2 }}
+            activeDot={{ r: 3.5, fill: 'var(--accent)', stroke: 'var(--bg-surface)', strokeWidth: 2 }}
           />
         </AreaChart>
       </ResponsiveContainer>

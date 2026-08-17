@@ -15,6 +15,7 @@ const endpointRoutes = require('./modules/endpoints/endpoint.routes');
 const statsRoutes = require('./modules/stats/stats.routes');
 const activityRoutes = require('./modules/activity/activity.routes');
 const statusRoutes = require('./modules/status/status.routes');
+const adminRoutes = require('./modules/admin/admin.routes');
 
 function createApp() {
   const app = express();
@@ -39,6 +40,7 @@ function createApp() {
   app.use('/api/endpoints', statsRoutes);
   app.use('/api/endpoints', activityRoutes);
   app.use('/api/status', statusRoutes);
+  app.use('/api/admin', adminRoutes);
 
   app.get('/api/health', (_req, res) => {
     res.json({ success: true, data: { status: 'healthy', timestamp: new Date().toISOString() } });

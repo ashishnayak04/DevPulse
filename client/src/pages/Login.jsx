@@ -6,6 +6,12 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { AuthBrand } from '../components/AuthBrand';
 
+const Logo = () => (
+  <span className="logo-mark" style={{ width: 44, height: 44 }}>
+    <PulseIcon size={24} />
+  </span>
+);
+
 export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,10 +43,10 @@ export const Login = () => {
       <main className="auth-form">
         <div className="auth-card animate-fade-in">
           <div className="auth-card__logo">
-            <PulseIcon size={26} />
+            <Logo />
           </div>
           <h1 className="auth-card__title">Sign in</h1>
-          <p className="auth-card__subtitle">Welcome back to your monitoring hub.</p>
+          <p className="auth-card__subtitle">Monitor the services your team depends on.</p>
 
           <form onSubmit={handleSubmit} noValidate>
             <Input
@@ -102,3 +108,6 @@ export const Login = () => {
     </div>
   );
 };
+
+
+export default Login;

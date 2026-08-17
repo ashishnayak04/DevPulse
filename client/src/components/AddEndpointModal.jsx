@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Globe, Edit3, Clock, AlertTriangle } from 'lucide-react';
 import { api } from '../api';
+import { useToast } from './Toast';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Input, Select } from './ui/Input';
@@ -11,6 +12,7 @@ export const AddEndpointModal = ({ isOpen, onClose, onAdd }) => {
   const [intervalMs, setIntervalMs] = useState(60000);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { addToast } = useToast();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,6 +37,7 @@ export const AddEndpointModal = ({ isOpen, onClose, onAdd }) => {
         lastChecked: null,
       });
 
+      addToast(`Now monitoring ${data.name || url}`, 'success');
       setName('');
       setUrl('');
       setIntervalMs(60000);

@@ -19,6 +19,11 @@ enum AlertType {
   UP
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 // ─── User ────────────────────────────────────────────────
 
 model User {
@@ -26,6 +31,8 @@ model User {
   email        String   @unique
   username     String   @unique
   passwordHash String
+  role         Role     @default(USER)
+  isActive     Boolean  @default(true)
   refreshToken String?
   createdAt    DateTime @default(now())
 
@@ -34,6 +41,7 @@ model User {
 
   @@index([email])
   @@index([username])
+  @@index([role])
 }
 
 // ─── Endpoint ────────────────────────────────────────────

@@ -71,6 +71,16 @@ NODE_ENV=development
 npx prisma migrate dev --name init
 ```
 
+### 3b. Create the admin account
+
+The admin panel is a platform bird's-eye view (all users, all endpoints, system health, platform activity). Create the admin user from the environment variables in `.env`:
+
+```bash
+npm run db:seed
+```
+
+The seed script reads `ADMIN_EMAIL`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD` from `.env` and creates (or resets) an `ADMIN`-role account. Sign in with those credentials to get the Admin section in the sidebar (`/admin`).
+
 ### 4. Start the app
 
 **Backend:**
@@ -84,6 +94,39 @@ cd client && npm run dev
 ```
 
 Open `http://localhost:5173`, register an account, and start adding endpoints.
+
+### 5. Stop the servers and free the ports
+
+The app opens three ports locally:
+
+| Port | Service |
+|------|---------|
+| `4000` | Backend (Express API + Socket.io) |
+| `5173` | Frontend (Vite dev server) |
+| `6379` | Redis (via Docker container `devpulse-redis`) |
+
+**Option A — Ctrl+C (foreground):** Press `Ctrl+C` in each terminal running `npm run dev`.
+
+**Option B — find and kill the process listening on a port (Windows PowerShell):**
+
+```powershell
+# Find the PID listening on a port
+netstat -ano | findstr :4000        # e.g. TCP 0.0.0.0:4000 ... LISTENING 1234
+netstat -ano | findstr :5173
+
+# Kill it
+taskkill /PID 1234 /F
+```
+
+**Option C — stop Docker Redis:**
+
+```powershell
+docker stop devpulse-redis          # stop the container (restart later with: docker start devpulse-redis)
+# Or remove it entirely:
+docker rm -f devpulse-redis
+```
+
+To bring everything back up later, re-run step 4 (plus `docker start devpulse-redis` if the Redis container was stopped).
 
 ### Production build
 
@@ -109,6 +152,12 @@ The Express server serves the built React app from `client/dist`.
 | GET | `/api/endpoints/:id/logs` | Ping logs for an endpoint |
 | GET | `/api/endpoints/stats/summary` | Aggregate stats |
 | GET | `/api/status/:username` | Public status page data |
+| GET | `/api/admin/overview` | Platform health + aggregate stats (admin) |
+| GET | `/api/admin/users` | All users with counts (admin) |
+| PATCH | `/api/admin/users/:id` | Change role / enable / disable a user (admin) |
+| DELETE | `/api/admin/users/:id` | Delete a user + their data (admin) |
+| GET | `/api/admin/endpoints` | All endpoints across all users (admin) |
+| GET | `/api/admin/activity` | Platform-wide check + alert feed (admin) |
 | GET | `/api/health` | Health check |
 
 ## Project Structure
@@ -127,6 +176,7 @@ src/
 │   ├── stats/
 │   ├── status/
 │   └── activity/
+│   └── admin/          # Platform bird's-eye view (overview, users, endpoints, activity)
 ├── queues/            # BullMQ queue definitions + job scheduling
 ├── jobs/              # Cron jobs (data retention)
 ├── workers/           # BullMQ workers (ping, alert)

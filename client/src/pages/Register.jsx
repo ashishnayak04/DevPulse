@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, User, AlertTriangle } from 'lucide-react';
+import { Mail, Lock, User, Activity as PulseIcon, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { AuthBrand } from '../components/AuthBrand';
+
+const Logo = () => (
+  <span className="logo-mark" style={{ width: 44, height: 44 }}>
+    <PulseIcon size={24} />
+  </span>
+);
 
 export const Register = () => {
   const [email, setEmail] = useState('');
@@ -50,8 +56,11 @@ export const Register = () => {
 
       <main className="auth-form">
         <div className="auth-card animate-fade-in">
+          <div className="auth-card__logo">
+            <Logo />
+          </div>
           <h1 className="auth-card__title">Create your account</h1>
-          <p className="auth-card__subtitle">Start monitoring your APIs in minutes.</p>
+          <p className="auth-card__subtitle">Start watching your APIs in under a minute.</p>
 
           <form onSubmit={handleSubmit} noValidate>
             <Input
@@ -132,3 +141,6 @@ export const Register = () => {
     </div>
   );
 };
+
+
+export default Register;
