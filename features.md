@@ -100,7 +100,7 @@ All implemented and documented capabilities of DevPulse v1.0, grouped by area.
 | Graceful shutdown | SIGTERM/SIGINT cleanup | ✅ |
 | Global rate limit | 100 req/min on `/api` | ✅ |
 | Security headers | Helmet (CSP + COEP disabled for SPA) | ✅ |
-| SPA serving | Express serves built React app from `client/dist` | ✅ |
+| SPA serving | Express serves built React app from `frontend/dist` | ✅ |
 
 ## 9. Frontend (React)
 
@@ -127,8 +127,68 @@ UI stack: React 19, Vite 6, react-router-dom 7, Recharts 2, Lucide React, socket
 
 ## Roadmap
 
-- Webhook configuration UI (backend ready).
+- Billing / Stripe subscriptions (plan limits already enforced).
+- Teams / multi-user workspaces.
+- Custom-domain status pages.
 - HTTP methods, custom headers, request bodies.
 - SMS / push notifications.
-- Teams / multi-user workspaces.
-- Longer retention windows / plan tiers.
+
+## v1.1 Additions
+
+### Plans & Limits (no billing yet)
+
+| Feature | Details | Status |
+|---------|---------|--------|
+| Plan enum | `FREE` / `PRO` / `BUSINESS` on User; default FREE | ✅ |
+| Endpoint caps | 5 / 25 / 100 enforced in create (`PLAN_LIMIT_REACHED` 403) | ✅ |
+| Interval floors | FREE ≥ 60s, PRO/BUSINESS ≥ 10s on create + update | ✅ |
+| Webhook caps | 1 / 5 / 20 per plan | ✅ |
+| Per-plan retention | Nightly purge: 14 / 45 / 90 days by owner plan | ✅ |
+| Usage endpoint | `GET /api/endpoints/usage` (plan, limits, usage) | ✅ |
+| Admin plan management | Plan dropdown in Admin → Users, audited | ✅ |
+| Usage meter | Dashboard header shows plan + monitors used | ✅ |
+
+### Account Security
+
+| Feature | Details | Status |
+|---------|---------|--------|
+| Email verification | Token hashed SHA-256, 24h expiry, sent on register | ✅ |
+| Verify page | `/verify-email?token=` frontend route | ✅ |
+| Resend verification | Authed endpoint with cooldown guard | ✅ |
+| Verification banner | Settings banner until verified | ✅ |
+| Forgot password | Anti-enumeration (always 200), hashed token, 30 min expiry | ✅ |
+| Reset password | Revokes refresh tokens; `/reset-password?token=` page | ✅ |
+| Branded emails | Verification + reset templates matching alert design | ✅ |
+
+### Webhook Management
+
+| Feature | Details | Status |
+|---------|---------|--------|
+| CRUD API | `GET/POST/PATCH/DELETE /api/webhooks`, ownership-scoped | ✅ |
+| Slack format | `{ text }` payload for SLACK type | ✅ |
+| Discord format | `{ content }` payload for DISCORD type | ✅ |
+| Generic signed | Original JSON + HMAC `X-DevPulse-Signature` header | ✅ |
+| Auto secrets | 24-byte hex secret generated per webhook | ✅ |
+| Test delivery | `POST /api/webhooks/:id/test` fire-and-forget | ✅ |
+| Delivery audit | Every attempt stored as `WebhookDelivery` (existing) | ✅ |
+| Settings UI | List/add/edit/test/delete with confirm dialogs | ✅ |
+
+### Platform Ops
+
+| Feature | Details | Status |
+|---------|---------|--------|
+| Global kill-switch | `PlatformSetting` singleton; pause/resume all checks | ✅ |
+| Worker guard | Ping worker double-checks flag before each check | ✅ |
+| Boot awareness | Startup scheduler skips when paused | ✅ |
+| Audit log | All admin mutations recorded (actor, action, target, metadata) | ✅ |
+| Audit UI | Admin → Audit tab | ✅ |
+| Toggle UI | Overview card with Pause/Resume all checks | ✅ |
+
+Run the API smoke test suite anytime:
+
+```bash
+cd backend
+node scripts/smoke-test.js
+```
+
+Note: tests that schedule pings or toggle monitoring require Redis to be running.

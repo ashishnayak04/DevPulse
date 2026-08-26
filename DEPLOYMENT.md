@@ -124,18 +124,17 @@ git clone https://github.com/your-org/devpulse.git
 cd devpulse
 
 # Install deps
-npm ci
-cd client && npm ci && npm run build && cd ..
+npm run install:all
 
 # Configure env
-cp .env.example .env
-nano .env  # fill in production values
+cp backend/.env.example backend/.env
+nano backend/.env  # fill in production values
 
 # Run migrations
-npx prisma migrate deploy
+npm --prefix backend run db:migrate:deploy
 
 # Generate Prisma client
-npx prisma generate
+npm --prefix backend run db:generate
 
 # Start with PM2
 pm2 start ecosystem.config.js
@@ -188,10 +187,10 @@ sudo certbot --nginx -d your-domain.com
 1. Push code to GitHub.
 2. Go to [railway.app](https://railway.app), click **New Project > Deploy from GitHub repo**.
 3. Add **PostgreSQL** and **Redis** plugins.
-4. Set all environment variables in the dashboard (use `.env.example` as reference).
+4. Set all environment variables in the dashboard (use `backend/.env.example` as reference).
 5. In the **Deploy** settings:
-   - **Build command:** `cd client && npm install && npm run build && cd .. && npm install`
-   - **Start command:** `npx prisma migrate deploy && npm start`
+   - **Build command:** `npm run build`
+   - **Start command:** `npm run db:migrate:deploy && npm start`
 6. Railway auto-deploys from your default branch.
 
 ---

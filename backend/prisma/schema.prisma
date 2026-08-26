@@ -1,0 +1,399 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum EndpointStatus {
+  UP
+  DOWN
+}
+
+enum AlertType {
+  DOWN
+  UP
+  SSL_EXPIRY
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Plan {
+  FREE
+  PRO
+  BUSINESS
+}
+
+enum WebhookType {
+  GENERIC
+  SLACK
+  DISCORD
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+// ─── User ────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String?
+  role         Role     @default(USER)
+  plan         Plan     @default(FREE)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  emailVerified        Boolean   @default(false)
+  emailVerifyToken     String?
+  emailVerifyExpires   DateTime?
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+
+  onboardingCompleted Boolean @default(false)
+
+  totpSecret      String?
+  totpEnabled     Boolean  @default(false)
+  totpBackupCodes String[] @default([])
+
+  endpoints          Endpoint[]
+  webhookConfigs     WebhookConfig[]
+  auditLogs          AuditLog[]              @relation("AuditActor")
+  statusPageConfig   StatusPageConfig?
+  notificationPref   NotificationPreference?
+  apiKeys            ApiKey[]
+  sessions           Session[]
+  oauthAccounts      OAuthAccount[]
+  teamMemberships    TeamMember[]
+  maintenanceWindows MaintenanceWindow[]
+  statusSubscribers  StatusSubscriber[]
+
+  @@index([email])
+  @@index([username])
+  @@index([role])
+}
+
+// ─── OAuth Account ───────────────────────────────────────
+
+model OAuthAccount {
+  id         String @id @default(uuid())
+  userId     String
+  provider   String
+  providerId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+  @@index([userId])
+}
+
+// ─── Session ─────────────────────────────────────────────
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  userAgent String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  lastUsed  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── API Key ─────────────────────────────────────────────
+
+model ApiKey {
+  id        String    @id @default(uuid())
+  userId    String
+  name      String
+  keyHash   String    @unique
+  keyPrefix String
+  lastUsed  DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── Endpoint ────────────────────────────────────────────
+
+model Endpoint {
+  id                  String         @id @default(uuid())
+  userId              String
+  name                String
+  url                 String
+  intervalMs          Int            @default(60000)
+  isActive            Boolean        @default(true)
+  consecutiveFailures Int            @default(0)
+  status              EndpointStatus @default(UP)
+  createdAt           DateTime       @default(now())
+
+  method              String  @default("GET")
+  headers             Json?
+  body                String?
+  expectedStatusCodes Int[]   @default([])
+  keywordMatch        String?
+  sslCheck            Boolean @default(false)
+  sslExpiryDays       Int     @default(30)
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pingLogs      PingLog[]
+  alerts        Alert[]
+  incidents     Incident[]
+  teamEndpoints TeamEndpoint[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ─── Ping Log ────────────────────────────────────────────
+
+model PingLog {
+  id             String   @id @default(uuid())
+  endpointId     String
+  statusCode     Int?
+  responseTimeMs Float
+  isUp           Boolean
+  checkedAt      DateTime @default(now())
+
+  endpoint Endpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([endpointId, checkedAt])
+  @@index([checkedAt])
+}
+
+// ─── Alert ───────────────────────────────────────────────
+
+model Alert {
+  id         String    @id @default(uuid())
+  endpointId String
+  type       AlertType
+  sentAt     DateTime  @default(now())
+
+  endpoint Endpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([endpointId])
+}
+
+// ─── Incident ────────────────────────────────────────────
+
+model Incident {
+  id           String    @id @default(uuid())
+  endpointId   String
+  startedAt    DateTime  @default(now())
+  resolvedAt   DateTime?
+  durationMs   Int?
+  acknowledged Boolean   @default(false)
+
+  endpoint Endpoint         @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  updates  IncidentUpdate[]
+
+  @@index([endpointId])
+  @@index([startedAt])
+}
+
+model IncidentUpdate {
+  id         String   @id @default(uuid())
+  incidentId String
+  message    String
+  createdAt  DateTime @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+}
+
+// ─── Webhook Config ──────────────────────────────────────
+
+model WebhookConfig {
+  id     String      @id @default(uuid())
+  userId String
+  url    String
+  type   WebhookType @default(GENERIC)
+  secret String
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([userId])
+}
+
+// ─── Webhook Delivery ────────────────────────────────────
+
+model WebhookDelivery {
+  id              String   @id @default(uuid())
+  webhookConfigId String
+  payload         Json
+  responseStatus  Int?
+  attempt         Int      @default(1)
+  deliveredAt     DateTime @default(now())
+  success         Boolean  @default(false)
+
+  webhookConfig WebhookConfig @relation(fields: [webhookConfigId], references: [id], onDelete: Cascade)
+
+  @@index([webhookConfigId])
+}
+
+// ─── Status Page Config ──────────────────────────────────
+
+model StatusPageConfig {
+  id          String  @id @default(uuid())
+  userId      String  @unique
+  title       String?
+  description String?
+  logoUrl     String?
+  accentColor String? @default("#22d3ee")
+  showLatency Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Maintenance Window ──────────────────────────────────
+
+model MaintenanceWindow {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String?
+  startsAt  DateTime
+  endsAt    DateTime
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── Status Subscriber ───────────────────────────────────
+
+model StatusSubscriber {
+  id           String   @id @default(uuid())
+  userId       String
+  email        String
+  confirmed    Boolean  @default(false)
+  confirmToken String?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, email])
+  @@index([userId])
+}
+
+// ─── Notification Preference ─────────────────────────────
+
+model NotificationPreference {
+  id                String  @id @default(uuid())
+  userId            String  @unique
+  emailEnabled      Boolean @default(true)
+  emailOnDown       Boolean @default(true)
+  emailOnRecovery   Boolean @default(true)
+  pagerdutyKey      String?
+  pagerdutyEnabled  Boolean @default(false)
+  quietHoursEnabled Boolean @default(false)
+  quietHoursStart   Int?
+  quietHoursEnd     Int?
+  timezone          String  @default("UTC")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Teams ───────────────────────────────────────────────
+
+model Team {
+  id        String         @id @default(uuid())
+  name      String
+  slug      String         @unique
+  createdAt DateTime       @default(now())
+  members   TeamMember[]
+  endpoints TeamEndpoint[]
+  invites   TeamInvite[]
+
+  @@index([slug])
+}
+
+model TeamMember {
+  id       String   @id @default(uuid())
+  teamId   String
+  userId   String
+  role     TeamRole @default(MEMBER)
+  joinedAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+}
+
+model TeamInvite {
+  id        String   @id @default(uuid())
+  teamId    String
+  email     String
+  role      TeamRole @default(MEMBER)
+  token     String   @unique
+  expiresAt DateTime
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([email])
+}
+
+model TeamEndpoint {
+  teamId     String
+  endpointId String
+
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  endpoint Endpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, endpointId])
+}
+
+// ─── Audit Log ───────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actorEmail String?
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([actorId])
+  @@index([action])
+}
+
+// ─── Platform Setting (singleton row, id = "global") ─────
+
+model PlatformSetting {
+  id                  String   @id @default("global")
+  monitoringEnabled   Boolean  @default(true)
+  message             String?
+  announcementMessage String?
+  announcementType    String?  @default("info")
+  updatedAt           DateTime @updatedAt
+}

@@ -1,0 +1,121 @@
+/* ============================================================
+   DevPulse — Design Tokens
+   ============================================================ */
+
+:root {
+  /* ── Backgrounds (match app: navy-dark surfaces) ── */
+  --bg-primary:    #0A0F16;
+  --bg-surface:    #10161F;
+  --bg-elevated:   #151D29;
+  --bg-hover:      #141C27;
+
+  /* ── Borders ── */
+  --border:        rgba(148, 163, 184, 0.12);
+  --border-hover:  rgba(148, 163, 184, 0.24);
+  --border-accent: rgba(34, 211, 238, 0.28);
+
+  /* ── Accent (UP / healthy / pulse — app signal cyan) ── */
+  --accent:        #22D3EE;
+  --accent-dim:    #1CB5D4;
+  --accent-glow:   rgba(34, 211, 238, 0.15);
+  --accent-glow-strong: rgba(34, 211, 238, 0.30);
+
+  /* ── Danger (DOWN / alert / failure) ── */
+  --danger:        #F87171;
+  --danger-dim:    #EF4444;
+  --danger-glow:   rgba(248, 113, 113, 0.15);
+
+  /* ── Info blue (secondary accent) ── */
+  --cyan:          #60A5FA;
+  --cyan-glow:     rgba(96, 165, 250, 0.15);
+
+  /* ── Warning (amber) ── */
+  --warning:       #FBBF24;
+
+  /* ── Text ── */
+  --text-primary:   #E7ECF3;
+  --text-secondary: #9AA6B8;
+  --text-muted:     #66758A;
+  --text-inverse:   #06212A;
+
+  /* ── Gradients ── */
+  --gradient-accent: linear-gradient(135deg, #22D3EE, #60A5FA);
+  --gradient-accent-hover: linear-gradient(135deg, #4ADDF2, #7CB3FC);
+  --gradient-danger: linear-gradient(135deg, #F87171, #FCA5A5);
+  --gradient-surface: linear-gradient(180deg, #10161F 0%, #0A0F16 100%);
+  --gradient-hero-radial: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(34,211,238,0.08) 0%, transparent 70%);
+
+  /* ── Typography ── */
+  --font-sans:  'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:  'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  --fs-xs:    clamp(0.7rem,   0.65rem + 0.25vw,  0.8rem);
+  --fs-sm:    clamp(0.8rem,   0.75rem + 0.25vw,  0.875rem);
+  --fs-base:  clamp(0.9rem,   0.85rem + 0.25vw,  1rem);
+  --fs-md:    clamp(1rem,     0.9rem  + 0.5vw,   1.125rem);
+  --fs-lg:    clamp(1.15rem,  1rem    + 0.75vw,  1.35rem);
+  --fs-xl:    clamp(1.35rem,  1.1rem  + 1vw,     1.75rem);
+  --fs-2xl:   clamp(1.75rem,  1.3rem  + 1.5vw,   2.5rem);
+  --fs-3xl:   clamp(2.25rem,  1.5rem  + 2.5vw,   3.5rem);
+  --fs-4xl:   clamp(2.75rem,  1.75rem + 3.5vw,   4.5rem);
+
+  --fw-normal:    400;
+  --fw-medium:    500;
+  --fw-semibold:  600;
+  --fw-bold:      700;
+  --fw-extrabold: 800;
+
+  --lh-tight:   1.15;
+  --lh-snug:    1.3;
+  --lh-normal:  1.6;
+  --lh-relaxed: 1.75;
+
+  --ls-tight:   -0.03em;
+  --ls-normal:  -0.01em;
+  --ls-wide:     0.05em;
+
+  /* ── Spacing ── */
+  --space-xs:   0.25rem;
+  --space-sm:   0.5rem;
+  --space-md:   1rem;
+  --space-lg:   1.5rem;
+  --space-xl:   2rem;
+  --space-2xl:  3rem;
+  --space-3xl:  4rem;
+  --space-4xl:  6rem;
+  --space-5xl:  8rem;
+
+  --section-padding: clamp(4rem, 6vw, 8rem) 0;
+  --container-max:   1200px;
+  --container-padding: 0 clamp(1rem, 3vw, 2rem);
+
+  /* ── Radii ── */
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-full: 999px;
+
+  /* ── Shadows ── */
+  --shadow-sm:    0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md:    0 4px 12px rgba(0,0,0,0.4);
+  --shadow-lg:    0 8px 30px rgba(0,0,0,0.5);
+  --shadow-glow:  0 0 20px var(--accent-glow), 0 0 60px var(--accent-glow);
+  --shadow-glow-danger: 0 0 20px var(--danger-glow), 0 0 60px var(--danger-glow);
+
+  /* ── Transitions ── */
+  --ease-out:     cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out:  cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --duration-fast:   150ms;
+  --duration-normal: 250ms;
+  --duration-slow:   400ms;
+  --duration-reveal: 700ms;
+
+  /* ── Z-index ── */
+  --z-base:    1;
+  --z-sticky:  100;
+  --z-overlay: 500;
+  --z-loader:  9999;
+}

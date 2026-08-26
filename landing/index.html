@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevPulse — API Health Monitoring | Know When Your APIs Break</title>
+  <meta name="description" content="DevPulse is an open-source API health monitoring SaaS. Monitor endpoints every 10 seconds, get real-time alerts, and share public status pages. Free. Self-hostable.">
+  <meta name="keywords" content="API monitoring, uptime monitoring, health check, status page, open source, DevOps, SRE">
+  <meta name="author" content="Ashish Nayak">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="DevPulse — API Health Monitoring">
+  <meta property="og:description" content="Monitor your APIs. Get alerted when they go down. Share your uptime with the world.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/og-image.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+
+  <!-- Fonts preconnect -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/sections.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════
+       PRELOADER
+       ═══════════════════════════════════════════════════════ -->
+  <div class="preloader" id="preloader">
+    <div class="preloader__logo">
+      <span class="gradient-text">Dev</span>Pulse
+    </div>
+    <div class="preloader__line">
+      <svg viewBox="0 0 280 40" preserveAspectRatio="none">
+        <path d="M0,20 L60,20 L70,20 L80,5 L90,35 L100,10 L110,30 L120,15 L130,20 L140,20 L200,20 L210,20 L220,5 L230,35 L240,10 L250,30 L260,15 L270,20 L280,20" />
+      </svg>
+    </div>
+  </div>
+
+  <!-- Background grid -->
+  <div class="bg-grid" id="bgGrid"></div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       NAVIGATION
+       ═══════════════════════════════════════════════════════ -->
+  <nav class="nav" id="nav">
+    <div class="nav__inner">
+      <a href="/" class="nav__logo" aria-label="DevPulse home">
+        <span class="gradient-text">Dev</span>Pulse
+        <span class="nav__logo-pulse"></span>
+      </a>
+
+      <div class="nav__links" id="navLinks">
+        <a href="#features" class="nav__link">Features</a>
+        <a href="#how-it-works" class="nav__link">How It Works</a>
+        <a href="#demo" class="nav__link">Live Demo</a>
+        <a href="#open-source" class="nav__link">Open Source</a>
+        <a href="/login" class="btn btn--primary nav__cta">Get Started</a>
+      </div>
+
+      <button class="nav__toggle" id="navToggle" aria-label="Toggle navigation">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div class="nav__overlay" id="navOverlay"></div>
+  </nav>
+
+  <main>
+    <!-- ═══════════════════════════════════════════════════════
+         HERO
+         ═══════════════════════════════════════════════════════ -->
+    <section class="hero section" id="hero">
+      <div class="hero__bg">
+        <div class="glow-orb glow-orb--accent"></div>
+        <div class="glow-orb glow-orb--cyan"></div>
+      </div>
+
+      <div class="container hero__content">
+        <div class="hero__text">
+          <div class="badge badge--accent hero__badge reveal">
+            <span class="badge-dot"></span>
+            Open-Source API Monitoring
+          </div>
+
+          <h1 class="hero__title reveal reveal--delay-1">
+            Know When Your APIs Break —
+            <span class="gradient-text">Before Your Users Do.</span>
+          </h1>
+
+          <p class="hero__subtitle reveal reveal--delay-2">
+            DevPulse monitors your endpoints every 10 seconds, alerts you in real-time,
+            and gives your users a live status page. Self-hostable. Free. No vendor lock-in.
+          </p>
+
+          <div class="hero__actions reveal reveal--delay-3">
+            <a href="/register" class="btn btn--primary btn--large">
+              Start Monitoring
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </a>
+            <a href="https://github.com/ashishnayak04/DevPulse" target="_blank" rel="noopener" class="btn btn--ghost btn--large">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+              View on GitHub
+            </a>
+          </div>
+
+          <div class="hero__trust reveal reveal--delay-4">
+            <span class="hero__trust-item">
+              <span class="hero__trust-check">✓</span> 10s check intervals
+            </span>
+            <span class="hero__trust-item">
+              <span class="hero__trust-check">✓</span> Real-time alerts
+            </span>
+            <span class="hero__trust-item">
+              <span class="hero__trust-check">✓</span> Public status pages
+            </span>
+          </div>
+        </div>
+
+        <div class="hero__visual reveal reveal--right reveal--delay-2">
+          <div class="terminal" id="heroTerminal">
+            <div class="terminal__header">
+              <span class="terminal__dot terminal__dot--red"></span>
+              <span class="terminal__dot terminal__dot--yellow"></span>
+              <span class="terminal__dot terminal__dot--green"></span>
+              <span class="terminal__title">Terminal — health-check</span>
+            </div>
+            <div class="terminal__body" id="terminalBody">
+              <!-- Populated by js/terminal.js -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+         TRUST STRIP (animated counters)
+         ═══════════════════════════════════════════════════════ -->
+    <section class="trust" id="trust">
+      <div class="container">
+        <div class="trust__grid">
+          <div class="trust__item reveal">
+            <div class="trust__number"><span class="counter" data-target="99.99" data-suffix="%" data-decimals="2">0</span></div>
+            <div class="trust__label">Uptime Detection Accuracy</div>
+          </div>
+          <div class="trust__item reveal reveal--delay-1">
+            <div class="trust__number"><span class="accent">&lt;</span> <span class="counter" data-target="50" data-suffix="ms">0</span></div>
+            <div class="trust__label">Average Alert Latency</div>
+          </div>
+          <div class="trust__item reveal reveal--delay-2">
+            <div class="trust__number"><span class="counter" data-target="10" data-suffix="s">0</span></div>
+            <div class="trust__label">Minimum Check Interval</div>
+          </div>
+          <div class="trust__item reveal reveal--delay-3">
+            <div class="trust__number"><span class="counter" data-target="100" data-suffix="+">0</span></div>
+            <div class="trust__label">Endpoints per Account</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+         FEATURES (Bento Grid)
+         ═══════════════════════════════════════════════════════ -->
+    <section class="features section" id="features">
+      <div class="container">
+        <div class="section-header reveal">
+          <h2>Everything You Need to <span class="gradient-text">Sleep at Night</span></h2>
+          <p>A complete monitoring toolkit — from the first ping to the last webhook.</p>
+        </div>
+
+        <div class="features__grid">
+          <!-- Card 1: Dashboard (wide) -->
+          <div class="card card--feature card--wide reveal reveal--delay-1">
+            <div class="card__icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            </div>
+            <h4 class="card__title">Real-Time Dashboard</h4>
+            <p class="card__desc">Live endpoint status cards with response time charts, powered by Socket.io. Your dashboard updates the instant a check completes — no page refresh needed.</p>
+            <div class="card__visual" id="dashboardVisual">
+              <!-- Dashboard mockup rendered here -->
+              <div style="padding: 16px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                <div style="background: var(--bg-elevated); border-radius: 8px; padding: 14px; border: 1px solid var(--border);">
+                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                    <span class="status-dot status-dot--up"></span>
+                    <span style="font-size:12px; font-weight:600; color:var(--text-primary);">api.prod.io</span>
+                  </div>
+                  <div style="font-size:10px; color:var(--text-muted);">Response: <span style="color:var(--accent);">42ms</span></div>
+                  <div style="margin-top:8px; height:30px; background: var(--bg-primary); border-radius:4px; overflow:hidden; position:relative;">
+                    <svg width="100%" height="30" preserveAspectRatio="none" viewBox="0 0 200 30"><path d="M0,20 L20,18 L40,22 L60,15 L80,17 L100,12 L120,19 L140,14 L160,16 L180,13 L200,15" fill="none" stroke="var(--accent)" stroke-width="1.5" opacity="0.7"/></svg>
+                  </div>
+                </div>
+                <div style="background: var(--bg-elevated); border-radius: 8px; padding: 14px; border: 1px solid var(--border);">
+                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                    <span class="status-dot status-dot--up"></span>
+                    <span style="font-size:12px; font-weight:600; color:var(--text-primary);">auth.service</span>
+                  </div>
+                  <div style="font-size:10px; color:var(--text-muted);">Response: <span style="color:var(--accent);">89ms</span></div>
+                  <div style="margin-top:8px; height:30px; background: var(--bg-primary); border-radius:4px; overflow:hidden; position:relative;">
+                    <svg width="100%" height="30" preserveAspectRatio="none" viewBox="0 0 200 30"><path d="M0,15 L20,22 L40,18 L60,25 L80,20 L100,16 L120,22 L140,18 L160,21 L180,17 L200,19" fill="none" stroke="var(--accent)" stroke-width="1.5" opacity="0.7"/></svg>
+                  </div>
+                </div>
+                <div style="background: var(--bg-elevated); border-radius: 8px; padding: 14px; border: 1px solid var(--border);">
+                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                    <span class="status-dot status-dot--down"></span>
+                    <span style="font-size:12px; font-weight:600; color:var(--text-primary);">cdn.static</span>
+                  </div>
+                  <div style="font-size:10px; color:var(--text-muted);">Response: <span style="color:var(--danger);">Timeout</span></div>
+                  <div style="margin-top:8px; height:30px; background: var(--bg-primary); border-radius:4px; overflow:hidden; position:relative;">
+                    <svg width="100%" height="30" preserveAspectRatio="none" viewBox="0 0 200 30"><path d="M0,15 L20,14 L40,16 L60,18 L80,25 L100,28 L120,15 L130,28 L140,15 L160,30 L180,30 L200,30" fill="none" stroke="var(--danger)" stroke-width="1.5" opacity="0.7"/></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Instant Alerts -->
+          <div class="card card--feature reveal reveal--delay-2">
+            <div class="card__icon card__icon--danger">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            </div>
+            <h4 class="card__title">Instant Alerts</h4>
+            <p class="card__desc">Email and webhook notifications the moment your API goes down — and again when it recovers. Never miss an outage.</p>
+          </div>
+
+          <!-- Card 3: Public Status Pages -->
+          <div class="card card--feature reveal reveal--delay-3">
+            <div class="card__icon card__icon--cyan">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+            </div>
+            <h4 class="card__title">Public Status Pages</h4>
+            <p class="card__desc">Share <code style="color:var(--cyan);">/status/yourname</code> with your users. Always up-to-date, cached for speed, zero configuration required.</p>
+            <div class="card__visual">
+              <div style="padding:14px;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; padding-bottom:10px; border-bottom: 1px solid var(--border);">
+                  <span style="font-size:12px; font-weight:600; color:var(--text-primary);">Status — yourname</span>
+                  <span class="badge badge--accent" style="font-size:9px; padding:2px 8px;">All Systems Operational</span>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; font-size:11px;">
+                    <span style="display:flex; align-items:center; gap:6px;"><span class="status-dot status-dot--up" style="width:6px;height:6px;"></span><span style="color:var(--text-secondary);">Production API</span></span>
+                    <span style="color:var(--accent); font-family:var(--font-mono); font-size:10px;">42ms</span>
+                  </div>
+                  <div style="display:flex; align-items:center; justify-content:space-between; font-size:11px;">
+                    <span style="display:flex; align-items:center; gap:6px;"><span class="status-dot status-dot--up" style="width:6px;height:6px;"></span><span style="color:var(--text-secondary);">Auth Service</span></span>
+                    <span style="color:var(--accent); font-family:var(--font-mono); font-size:10px;">89ms</span>
+                  </div>
+                  <div style="display:flex; align-items:center; justify-content:space-between; font-size:11px;">
+                    <span style="display:flex; align-items:center; gap:6px;"><span class="status-dot status-dot--up" style="width:6px;height:6px;"></span><span style="color:var(--text-secondary);">Webhook Relay</span></span>
+                    <span style="color:var(--accent); font-family:var(--font-mono); font-size:10px;">156ms</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 4: Consecutive Failure Detection -->
+          <div class="card card--feature reveal reveal--delay-1">
+            <div class="card__icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <h4 class="card__title">Smart Failure Detection</h4>
+            <p class="card__desc">No false alarms. An endpoint is only marked DOWN after 3 consecutive failures, preventing noise from transient hiccups.</p>
+            <div class="card__visual">
+              <div style="padding:16px; font-family:var(--font-mono); font-size:12px; display:flex; flex-direction:column; gap:6px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="color:var(--accent);">✓</span>
+                  <span style="color:var(--text-muted);">Check #1 — 200 OK</span>
+                  <span style="margin-left:auto; color:var(--text-muted); font-size:10px;">45ms</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="color:var(--accent);">✓</span>
+                  <span style="color:var(--text-muted);">Check #2 — 200 OK</span>
+                  <span style="margin-left:auto; color:var(--text-muted); font-size:10px;">38ms</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="color:var(--danger);">✗</span>
+                  <span style="color:var(--text-secondary);">Check #3 — Timeout</span>
+                  <span style="margin-left:auto; color:var(--text-muted); font-size:10px;">—</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="color:var(--danger);">✗</span>
+                  <span style="color:var(--text-secondary);">Check #4 — Timeout</span>
+                  <span style="margin-left:auto; color:var(--text-muted); font-size:10px;">—</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="color:var(--danger);">✗</span>
+                  <span style="color:var(--text-primary); font-weight:600;">Check #5 — Timeout</span>
+                  <span style="margin-left:auto; padding:2px 8px; background:var(--danger-glow); color:var(--danger); border-radius:4px; font-size:10px; font-weight:600;">DOWN</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 5: Analytics (wide) -->
+          <div class="card card--feature card--wide reveal reveal--delay-2">
+            <div class="card__icon card__icon--cyan">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+            </div>
+            <h4 class="card__title">Response Time Analytics</h4>
+            <p class="card__desc">24-hour uptime %, average latency, P95 response time, total checks — all computed with PostgreSQL aggregation and displayed in beautiful charts.</p>
+            <div class="card__visual">
+              <div style="padding:16px;">
+                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px;">
+                  <div style="text-align:center;">
+                    <div style="font-size:18px; font-weight:700; color:var(--accent); font-variant-numeric:tabular-nums;">99.7%</div>
+                    <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">Uptime</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="font-size:18px; font-weight:700; color:var(--text-primary); font-variant-numeric:tabular-nums;">48ms</div>
+                    <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">Avg Latency</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="font-size:18px; font-weight:700; color:var(--cyan); font-variant-numeric:tabular-nums;">142ms</div>
+                    <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">P95</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="font-size:18px; font-weight:700; color:var(--text-primary); font-variant-numeric:tabular-nums;">1,440</div>
+                    <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">Total Checks</div>
+                  </div>
+                </div>
+                <div style="height:80px; background:var(--bg-primary); border-radius:8px; overflow:hidden; position:relative; border: 1px solid var(--border);">
+                  <svg width="100%" height="80" preserveAspectRatio="none" viewBox="0 0 400 80">
+                    <defs>
+                      <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.2"/>
+                        <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+                      </linearGradient>
+                    </defs>
+                    <path d="M0,60 L20,55 L40,52 L60,48 L80,50 L100,42 L120,38 L140,45 L160,35 L180,40 L200,30 L220,35 L240,28 L260,32 L280,25 L300,30 L320,22 L340,28 L360,20 L380,25 L400,18 L400,80 L0,80 Z" fill="url(#chartFill)"/>
+                    <path d="M0,60 L20,55 L40,52 L60,48 L80,50 L100,42 L120,38 L140,45 L160,35 L180,40 L200,30 L220,35 L240,28 L260,32 L280,25 L300,30 L320,22 L340,28 L360,20 L380,25 L400,18" fill="none" stroke="var(--accent)" stroke-width="2"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 6: Webhooks -->
+          <div class="card card--feature reveal reveal--delay-3">
+            <div class="card__icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            </div>
+            <h4 class="card__title">Webhook Integrations</h4>
+            <p class="card__desc">HMAC-SHA256 signed payloads, automatic retries with exponential backoff, and a full delivery audit trail.</p>
+            <div class="card__visual">
+              <div style="padding:14px; font-family:var(--font-mono); font-size:11px; line-height:1.6;">
+                <span style="color:var(--text-muted);">POST</span> <span style="color:var(--cyan);">https://hooks.slack.com/...</span><br>
+                <span style="color:var(--text-muted);">X-DevPulse-Signature:</span> <span style="color:var(--warning);">sha256=a1b2c3...</span><br>
+                <br>
+                <span style="color:var(--text-muted);">{</span><br>
+                &nbsp;&nbsp;<span style="color:var(--cyan);">"event"</span>: <span style="color:var(--danger);">"endpoint.down"</span>,<br>
+                &nbsp;&nbsp;<span style="color:var(--cyan);">"endpoint"</span>: <span style="color:var(--accent);">"api.prod.io"</span>,<br>
+                &nbsp;&nbsp;<span style="color:var(--cyan);">"timestamp"</span>: <span style="color:var(--warning);">"2026-08-23T..."</span><br>
+                <span style="color:var(--text-muted);">}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+         HOW IT WORKS
+         ═══════════════════════════════════════════════════════ -->
+    <section class="how-it-works section" id="how-it-works">
+      <div class="container">
+        <div class="section-header reveal">
+          <h2>Up and Running in <span class="gradient-text">3 Minutes</span></h2>
+          <p>From sign-up to your first monitored endpoint — it's that quick.</p>
+        </div>
+
+        <div class="steps">
+          <div class="step reveal">
+            <div class="step-number">1</div>
+            <div class="step__content">
+              <h4>Register & Add Your Endpoint</h4>
+              <p>Sign up with email and username, paste your API URL, set your preferred check interval. That's it.</p>
+              <div class="step__visual">
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="color:var(--text-muted); width:50px; font-size:10px;">URL</span>
+                    <span style="flex:1; padding:6px 10px; background:var(--bg-primary); border-radius:4px; border:1px solid var(--border); color:var(--cyan); font-size:11px;">https://api.yourapp.com/health</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="color:var(--text-muted); width:50px; font-size:10px;">Interval</span>
+                    <span style="flex:1; padding:6px 10px; background:var(--bg-primary); border-radius:4px; border:1px solid var(--border); color:var(--text-primary); font-size:11px;">Every 60 seconds</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="step reveal reveal--delay-2">
+            <div class="step-number">2</div>
+            <div class="step__content">
+              <h4>We Ping. Continuously.</h4>
+              <p>BullMQ workers hit your endpoint at the configured interval. Results stream live to your dashboard via Socket.io — no refresh needed.</p>
+              <div class="step__visual">
+                <div style="display:flex; align-items:center; justify-content:center; gap:12px; padding:8px 0; font-size:11px;">
+                  <span style="padding:4px 10px; background:var(--accent-glow); color:var(--accent); border-radius:4px; font-weight:600;">DevPulse</span>
+                  <span style="color:var(--text-muted);">→ ping →</span>
+                  <span style="padding:4px 10px; background:var(--bg-primary); color:var(--text-secondary); border-radius:4px; border:1px solid var(--border);">Your API</span>
+                  <span style="color:var(--text-muted);">→ 200 OK →</span>
+                  <span style="padding:4px 10px; background:var(--accent-glow); color:var(--accent); border-radius:4px; font-weight:600;">✓ UP</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="step reveal reveal--delay-4">
+            <div class="step-number">3</div>
+            <div class="step__content">
+              <h4>Get Alerted Instantly</h4>
+              <p>DOWN after 3 consecutive failures. Email + webhook fired immediately. Recovery notification follows when your API comes back up.</p>
+              <div class="step__visual">
+                <div style="display:flex; flex-direction:column; gap:6px; font-size:11px;">
+                  <div style="display:flex; align-items:center; gap:8px; padding:6px 10px; background:var(--danger-glow); border-radius:6px; border:1px solid rgba(248,113,113,0.2);">
+                    <span style="color:var(--danger); font-weight:600;">🔴 DOWN</span>
+                    <span style="color:var(--text-secondary);">api.yourapp.com — 3 consecutive failures</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:8px; padding:6px 10px; background:var(--accent-glow); border-radius:6px; border:1px solid rgba(34,211,238,0.2);">
+                    <span style="color:var(--accent); font-weight:600;">🟢 UP</span>
+                    <span style="color:var(--text-secondary);">api.yourapp.com — recovered after 4m 12s</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+         LIVE DEMO (Interactive)
+         ═══════════════════════════════════════════════════════ -->
+    <section class="demo section" id="demo">
+      <div class="container">
+        <div class="section-header reveal">
+          <h2>See It <span class="gradient-text">In Action</span></h2>
+          <p>Watch a simulated endpoint cycle through health checks in real-time.</p>
+        </div>
+
+        <div class="demo__card reveal reveal--scale" id="demoCard">
+          <div class="demo__header">
+            <div class="demo__endpoint">
+              <span class="status-dot status-dot--up" id="demoStatusDot"></span>
+              <div>
+                <div class="demo__endpoint-name">Production API</div>
+                <div class="demo__endpoint-url">https://api.demo.com/health</div>
+              </div>
+            </div>
+            <div class="demo__status demo__status--up" id="demoStatusText">
+              <span id="demoStatusLabel">UP</span>
+            </div>
+          </div>
+
+          <div class="demo__body">
+            <div class="demo__stats">
+              <div>
+                <div class="demo__stat-value demo__stat-value--accent" id="demoUptime">99.7%</div>
+                <div class="demo__stat-label">Uptime (24h)</div>
+              </div>
+              <div>
+                <div class="demo__stat-value" id="demoLatency">42ms</div>
+                <div class="demo__stat-label">Avg Latency</div>
+              </div>
+              <div>
+                <div class="demo__stat-value" id="demoChecks">1,440</div>
+                <div class="demo__stat-label">Total Checks</div>
+              </div>
+            </div>
+
+            <div class="demo__chart">
+              <canvas id="demoChart"></canvas>
+            </div>
+          </div>
+
+          <div class="demo__footer">
+            <span style="color:var(--accent);">●</span>
+            Last checked: <span class="demo__last-check" id="demoLastCheck">just now</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+         TECH STACK
+         ═══════════════════════════════════════════════════════ -->
+    <section class="tech-stack" id="tech-stack">
+      <h3 class="tech-stack__title reveal">Built on <span class="gradient-text">Battle-Tested</span> Tech</h3>
+      <div class="tech-stack__scroll" id="techScroll">
+        <!-- Duplicated for infinite scroll -->
+        <span class="tech-badge">⬡ Node.js</span>
+        <span class="tech-badge">⚡ Express</span>
+        <span class="tech-badge">🐘 PostgreSQL</span>
+        <span class="tech-badge">🔴 Redis</span>
+        <span class="tech-badge">📨 BullMQ</span>
+        <span class="tech-badge">◆ Prisma</span>
+        <span class="tech-badge">🔌 Socket.io</span>
+        <span class="tech-badge">⚛ React 19</span>
+        <span class="tech-badge">⚡ Vite</span>
+        <span class="tech-badge">📊 Recharts</span>
+        <span class="tech-badge">🔐 JWT</span>
+        <span class="tech-badge">📧 Nodemailer</span>
+        <!-- Duplicate set for seamless loop -->
+        <span class="tech-badge">⬡ Node.js</span>
+        <span class="tech-badge">⚡ Express</span>
+        <span class="tech-badge">🐘 PostgreSQL</span>
+        <span class="tech-badge">🔴 Redis</span>
+        <span class="tech-badge">📨 BullMQ</span>
+        <span class="tech-badge">◆ Prisma</span>
+        <span class="tech-badge">🔌 Socket.io</span>
+        <span class="tech-badge">⚛ React 19</span>
+        <span class="tech-badge">⚡ Vite</span>
+        <span class="tech-badge">📊 Recharts</span>
+        <span class="tech-badge">🔐 JWT</span>
+        <span class="tech-badge">📧 Nodemailer</span>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+         OPEN SOURCE CTA
+         ═══════════════════════════════════════════════════════ -->
+    <section class="oss-cta section" id="open-source">
+      <div class="container">
+        <div class="section-header reveal">
+          <h2>Free. Open Source. <span class="gradient-text">Yours to Own.</span></h2>
+          <p>DevPulse is MIT-licensed. Self-host it on your own infrastructure, contribute to the codebase, or fork it and make it your own. No subscriptions. No vendor lock-in.</p>
+        </div>
+
+        <div class="gh-card reveal reveal--scale">
+          <div class="gh-card__icon">
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          </div>
+          <div class="gh-card__repo">ashishnayak04/DevPulse</div>
+          <div class="gh-card__meta">MIT License · Node.js · JavaScript</div>
+          <div class="gh-card__actions">
+            <a href="https://github.com/ashishnayak04/DevPulse" target="_blank" rel="noopener" class="btn btn--primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              Star on GitHub
+            </a>
+            <a href="https://github.com/ashishnayak04/DevPulse#readme" target="_blank" rel="noopener" class="btn btn--ghost">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+              Read the Docs
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════
+       FOOTER
+       ═══════════════════════════════════════════════════════ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer__inner">
+        <div class="footer__brand">
+          <div class="nav__logo" style="font-size:var(--fs-lg);">
+            <span class="gradient-text">Dev</span>Pulse
+            <span class="nav__logo-pulse"></span>
+          </div>
+          <p>Monitor your APIs. Sleep in peace.</p>
+        </div>
+
+        <div class="footer__links">
+          <a href="https://github.com/ashishnayak04/DevPulse" class="footer__link" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/ashishnayak04/DevPulse#readme" class="footer__link" target="_blank" rel="noopener">Docs</a>
+          <a href="#features" class="footer__link">Features</a>
+          <a href="https://github.com/ashishnayak04/DevPulse/blob/main/LICENSE" class="footer__link" target="_blank" rel="noopener">License</a>
+          <a href="/privacy" class="footer__link">Privacy Policy</a>
+          <a href="/terms" class="footer__link">Terms of Service</a>
+        </div>
+
+        <div class="footer__credit">
+          Built by <strong style="color:var(--text-primary);">Ashish Nayak</strong>
+        </div>
+      </div>
+
+      <div class="footer__bottom">
+        <div class="footer__heartbeat">
+          <svg viewBox="0 0 1200 30" preserveAspectRatio="none">
+            <path d="M0,15 L100,15 L120,15 L130,3 L140,27 L150,8 L160,22 L170,12 L180,15 L300,15 L320,15 L330,3 L340,27 L350,8 L360,22 L370,12 L380,15 L500,15 L520,15 L530,3 L540,27 L550,8 L560,22 L570,12 L580,15 L700,15 L720,15 L730,3 L740,27 L750,8 L760,22 L770,12 L780,15 L900,15 L920,15 L930,3 L940,27 L950,8 L960,22 L970,12 L980,15 L1100,15 L1120,15 L1130,3 L1140,27 L1150,8 L1160,22 L1170,12 L1180,15 L1200,15"
+              fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ═══════════════════════════════════════════════════════
+       SCRIPTS
+       ═══════════════════════════════════════════════════════ -->
+  <script src="js/loader.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/scroll.js"></script>
+  <script src="js/counters.js"></script>
+  <script src="js/terminal.js"></script>
+  <script src="js/demo.js"></script>
+  <script src="js/cookie-banner.js"></script>
+</body>
+</html>

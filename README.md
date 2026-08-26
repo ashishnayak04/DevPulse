@@ -41,13 +41,12 @@
 ### 1. Install dependencies
 
 ```bash
-npm install
-cd client && npm install && cd ..
+npm run install:all
 ```
 
 ### 2. Configure environment
 
-Copy `.env` (provided) or create your own:
+Copy `backend/.env.example` to `backend/.env` and fill in your values:
 
 ```env
 DATABASE_URL=postgresql://devpulse:devpulse@localhost:5432/devpulse
@@ -68,7 +67,7 @@ NODE_ENV=development
 ### 3. Database setup
 
 ```bash
-npx prisma migrate dev --name init
+npm --prefix backend run db:migrate
 ```
 
 ### 3b. Create the admin account
@@ -79,18 +78,18 @@ The admin panel is a platform bird's-eye view (all users, all endpoints, system 
 npm run db:seed
 ```
 
-The seed script reads `ADMIN_EMAIL`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD` from `.env` and creates (or resets) an `ADMIN`-role account. Sign in with those credentials to get the Admin section in the sidebar (`/admin`).
+The seed script reads `ADMIN_EMAIL`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD` from `backend/.env` and creates (or resets) an `ADMIN`-role account. Sign in with those credentials to get the Admin section in the sidebar (`/admin`).
 
 ### 4. Start the app
 
-**Backend:**
+**Backend (from repo root):**
 ```bash
-npm run dev
+npm run dev:backend
 ```
 
 **Frontend (separate terminal):**
 ```bash
-cd client && npm run dev
+npm run dev:frontend
 ```
 
 Open `http://localhost:5173`, register an account, and start adding endpoints.
@@ -105,7 +104,7 @@ The app opens three ports locally:
 | `5173` | Frontend (Vite dev server) |
 | `6379` | Redis (via Docker container `devpulse-redis`) |
 
-**Option A — Ctrl+C (foreground):** Press `Ctrl+C` in each terminal running `npm run dev`.
+**Option A — Ctrl+C (foreground):** Press `Ctrl+C` in each terminal running the dev servers.
 
 **Option B — find and kill the process listening on a port (Windows PowerShell):**
 
@@ -131,11 +130,11 @@ To bring everything back up later, re-run step 4 (plus `docker start devpulse-re
 ### Production build
 
 ```bash
-cd client && npm run build && cd ..
+npm run build
 npm start
 ```
 
-The Express server serves the built React app from `client/dist`.
+The Express server serves the built React app from `frontend/dist`.
 
 ## API Overview
 
@@ -144,58 +143,83 @@ The Express server serves the built React app from `client/dist`.
 | POST | `/api/auth/register` | Register a new user |
 | POST | `/api/auth/login` | Sign in |
 | POST | `/api/auth/refresh` | Refresh access token |
+| POST | `/api/auth/forgot-password` | Request password reset email |
+| POST | `/api/auth/reset-password` | Reset password with emailed token |
+| GET | `/api/auth/verify-email` | Verify email with emailed token |
+| POST | `/api/auth/resend-verification` | Resend verification email (auth) |
 | GET | `/api/endpoints` | List user's endpoints |
-| POST | `/api/endpoints` | Create an endpoint |
+| POST | `/api/endpoints` | Create an endpoint (plan-limited) |
 | GET | `/api/endpoints/:id` | Endpoint detail + stats |
-| PATCH | `/api/endpoints/:id` | Update endpoint |
+| PATCH | `/api/endpoints/:id` | Update endpoint (plan interval floors) |
 | DELETE | `/api/endpoints/:id` | Remove endpoint |
 | GET | `/api/endpoints/:id/logs` | Ping logs for an endpoint |
 | GET | `/api/endpoints/stats/summary` | Aggregate stats |
+| GET | `/api/endpoints/usage` | Plan limits + current usage |
+| GET | `/api/webhooks` | List webhook configs |
+| POST | `/api/webhooks` | Add webhook (SLACK / DISCORD / GENERIC) |
+| PATCH | `/api/webhooks/:id` | Update webhook |
+| POST | `/api/webhooks/:id/test` | Send test delivery |
+| DELETE | `/api/webhooks/:id` | Remove webhook |
 | GET | `/api/status/:username` | Public status page data |
 | GET | `/api/admin/overview` | Platform health + aggregate stats (admin) |
 | GET | `/api/admin/users` | All users with counts (admin) |
-| PATCH | `/api/admin/users/:id` | Change role / enable / disable a user (admin) |
-| DELETE | `/api/admin/users/:id` | Delete a user + their data (admin) |
+| PATCH | `/api/admin/users/:id` | Change role / plan / enable / disable (admin, audited) |
+| DELETE | `/api/admin/users/:id` | Delete a user + their data (admin, audited) |
 | GET | `/api/admin/endpoints` | All endpoints across all users (admin) |
 | GET | `/api/admin/activity` | Platform-wide check + alert feed (admin) |
+| PATCH | `/api/admin/system/monitoring` | Global monitoring kill-switch (admin, audited) |
+| GET | `/api/admin/audit` | Audit log of admin actions (admin) |
 | GET | `/api/health` | Health check |
+
+## Plans
+
+Limits are enforced server-side on every create/update:
+
+| | FREE | PRO | BUSINESS |
+|--|------|-----|----------|
+| Monitors | 5 | 25 | 100 |
+| Webhooks | 1 | 5 | 20 |
+| Min check interval | 60s | 10s | 10s |
+| Data retention | 14 days | 45 days | 90 days |
+
+Plans are assigned by the admin from the Users panel (billing integration pending).
 
 ## Project Structure
 
 ```
-src/
-├── server.js          # Entry point — boots HTTP server, socket, workers, cron
-├── app.js             # Express app factory (routes, middleware, static)
-├── config/            # Centralized environment configuration
-├── constants/         # App-wide constants (rate limits, intervals, retention)
-├── lib/               # Infrastructure singletons (prisma, redis, logger, jwt)
-├── middleware/        # authenticate, error-handler, rate-limiters, validate
-├── modules/           # Feature modules (controller + routes + service + validators)
-│   ├── auth/
-│   ├── endpoints/
-│   ├── stats/
-│   ├── status/
-│   └── activity/
-│   └── admin/          # Platform bird's-eye view (overview, users, endpoints, activity)
-├── queues/            # BullMQ queue definitions + job scheduling
-├── jobs/              # Cron jobs (data retention)
-├── workers/           # BullMQ workers (ping, alert)
-├── services/          # Cross-cutting services (email, webhook, alert)
-├── socket/            # Socket.io server setup
-├── templates/         # Email templates
-└── utils/             # Small pure helpers (hmac)
+backend/
+├── src/
+│   ├── server.js          # Entry point — boots HTTP server, socket, workers, cron
+│   ├── app.js             # Express app factory (routes, middleware, static)
+│   ├── config/            # Centralized environment configuration
+│   ├── constants/         # App-wide constants (rate limits, intervals, retention)
+│   ├── lib/               # Infrastructure singletons (prisma, redis, logger, jwt)
+│   ├── middleware/        # authenticate, error-handler, rate-limiters, validate
+│   ├── modules/           # Feature modules (controller + routes + service + validators)
+│   │   ├── auth/
+│   │   ├── endpoints/
+│   │   ├── stats/
+│   │   ├── status/
+│   │   └── activity/
+│   │   └── admin/          # Platform bird's-eye view (overview, users, endpoints, activity)
+│   ├── queues/            # BullMQ queue definitions + job scheduling
+│   ├── jobs/              # Cron jobs (data retention)
+│   ├── workers/           # BullMQ workers (ping, alert)
+│   ├── services/          # Cross-cutting services (email, webhook, alert)
+│   ├── socket/            # Socket.io server setup
+│   ├── templates/         # Email templates
+│   └── utils/             # Small pure helpers (hmac)
+└── prisma/
+    └── schema.prisma      # Database schema
 
-client/
+frontend/
 └── src/
     ├── components/  # Shared UI components
     ├── context/     # React context (auth)
     ├── hooks/       # Custom hooks
     ├── pages/       # Route pages
-    ├── api.js       # Axios client
+    ├── api.js       # Fetch client with auto token refresh
     └── main.jsx     # React entry point
-
-prisma/
-└── schema.prisma    # Database schema
 ```
 
 ## License

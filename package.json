@@ -1,46 +1,16 @@
 {
   "name": "devpulse",
   "version": "1.0.0",
-  "description": "Production-grade API health monitoring SaaS backend",
-  "main": "src/server.js",
+  "description": "DevPulse — API health monitoring SaaS (monorepo: frontend + backend)",
   "scripts": {
-    "dev": "nodemon src/server.js",
-    "start": "node src/server.js",
-    "build": "npm --prefix client install && npm --prefix client run build",
-    "db:migrate": "npx prisma migrate dev --name init",
-    "db:migrate:deploy": "npx prisma migrate deploy",
-    "db:push": "npx prisma db push",
-    "db:generate": "npx prisma generate",
-    "db:studio": "npx prisma studio",
-    "db:seed": "node prisma/seed.js"
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "build": "npm --prefix backend install && npm --prefix frontend install && npm --prefix frontend run build",
+    "start": "node backend/src/server.js",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "db:migrate:deploy": "npm --prefix backend run db:migrate:deploy",
+    "db:studio": "npm --prefix backend run db:studio",
+    "db:seed": "npm --prefix backend run db:seed"
   },
-  "keywords": ["api", "monitoring", "health-check", "uptime", "saas"],
-  "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "@prisma/client": "^6.9.0",
-    "axios": "^1.9.0",
-    "bcrypt": "^5.1.1",
-    "bullmq": "^5.52.0",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
-    "dotenv": "^16.5.0",
-    "express": "^4.21.2",
-    "express-rate-limit": "^7.5.0",
-    "helmet": "^8.1.0",
-    "ioredis": "^5.6.1",
-    "jsonwebtoken": "^9.0.2",
-    "morgan": "^1.10.0",
-    "node-cron": "^3.0.3",
-    "nodemailer": "^6.10.1",
-    "socket.io": "^4.8.1",
-    "zod": "^3.25.3"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.9",
-    "prisma": "^6.9.0"
-  },
-  "prisma": {
-    "seed": "node prisma/seed.js"
-  }
+  "license": "MIT"
 }

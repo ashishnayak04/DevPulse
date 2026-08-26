@@ -1,0 +1,468 @@
+/* ------------------------------------------------------------------ */
+/* Feature 5 — public status page (spub-*) + settings section (sps-*)  */
+/* Accent is driven by --status-accent (set inline from config).       */
+/* ------------------------------------------------------------------ */
+
+:root {
+  --status-accent: #22d3ee;
+}
+
+.spub-root {
+  --status-accent-soft: color-mix(in srgb, var(--status-accent, #22d3ee) 9%, transparent);
+  --status-accent-border: color-mix(in srgb, var(--status-accent, #22d3ee) 30%, transparent);
+}
+
+/* Header accents ---------------------------------------------------- */
+
+.spub-root .spub-logo-mark {
+  background: linear-gradient(135deg, var(--status-accent, #22d3ee), var(--accent));
+}
+
+.spub-brand-accent {
+  color: var(--status-accent, #22d3ee);
+}
+
+.spub-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.spub-section-title svg {
+  color: var(--danger-text);
+}
+
+.spub-section-title--center {
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.spub-section-title--center svg {
+  color: inherit;
+}
+
+/* Maintenance banners ----------------------------------------------- */
+
+.spub-maintenance {
+  margin-bottom: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.spub-maint {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--warning-border);
+  background: var(--warning-soft);
+}
+
+.spub-maint__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(245, 158, 11, 0.16);
+  color: var(--warning-text);
+}
+
+.spub-maint__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.spub-maint__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--warning-text);
+  letter-spacing: -0.01em;
+}
+
+.spub-maint__message {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.spub-maint__range {
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.spub-maint__badge {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.spub-maint__badge--active {
+  background: rgba(245, 158, 11, 0.18);
+  color: var(--warning-text);
+}
+
+.spub-maint__badge--upcoming {
+  background: var(--bg-raised);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.spub-maint--slim {
+  align-items: center;
+  padding: 10px 16px;
+  background: rgba(245, 158, 11, 0.05);
+  border-color: rgba(251, 191, 36, 0.18);
+}
+
+.spub-maint--slim .spub-maint__icon {
+  width: 26px;
+  height: 26px;
+}
+
+.spub-maint--slim .spub-maint__title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.spub-maint--slim .spub-maint__range {
+  margin-top: 2px;
+}
+
+/* Active incidents --------------------------------------------------- */
+
+.spub-incidents {
+  margin-bottom: 28px;
+}
+
+.spub-incident-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.spub-incident {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--danger-border);
+  background: var(--danger-soft);
+}
+
+.spub-incident__icon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(239, 68, 68, 0.16);
+  color: var(--danger-text);
+}
+
+.spub-incident__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.spub-incident__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.spub-incident__endpoint {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--danger-text);
+  letter-spacing: -0.01em;
+}
+
+.spub-chip {
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(245, 158, 11, 0.14);
+  color: var(--warning-text);
+  border: 1px solid var(--warning-border);
+}
+
+.spub-incident__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.spub-incident__duration {
+  color: var(--danger-text);
+  font-weight: 600;
+}
+
+/* Subscribe block ----------------------------------------------------- */
+
+.spub-subscribe {
+  margin: 32px auto 36px;
+  max-width: 480px;
+  text-align: center;
+}
+
+.spub-subscribe__form {
+  display: flex;
+  gap: 10px;
+}
+
+.spub-subscribe__input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+}
+
+.spub-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 22px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--status-accent, #22d3ee);
+  color: #06121a;
+  font-size: 13.5px;
+  font-weight: 700;
+  transition: filter var(--transition), transform var(--transition);
+  flex-shrink: 0;
+}
+
+.spub-btn:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+.spub-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.spub-subscribe__error {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--danger-text);
+  text-align: left;
+}
+
+.spub-subscribe__done {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--status-accent-border, var(--success-border));
+  background: var(--status-accent-soft, var(--success-soft));
+  font-size: 13.5px;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.spub-subscribe__done svg {
+  color: var(--status-accent, #22d3ee);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.spub-subscribe__note {
+  margin-top: 12px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.spub-subscribe__note a {
+  color: var(--status-accent, #22d3ee);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Settings section (sps-*)                                            */
+/* ------------------------------------------------------------------ */
+
+.sps .settings-section__head .btn,
+.sps .settings-section__head > a.btn {
+  margin-left: auto;
+}
+
+.sps-textarea {
+  resize: vertical;
+  min-height: 56px;
+  line-height: 1.5;
+  height: auto;
+}
+
+/* Accent picker ------------------------------------------------------ */
+
+.sps-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sps-color-swatch-input {
+  width: 40px;
+  height: 38px;
+  padding: 2px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+  cursor: pointer;
+}
+
+.sps-color-hex {
+  width: 96px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  text-transform: lowercase;
+}
+
+.sps-swatches {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sps-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  transition: transform var(--transition), border-color var(--transition);
+}
+
+.sps-swatch:hover {
+  transform: scale(1.12);
+}
+
+.sps-swatch--active {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px var(--bg-base);
+}
+
+/* Toggle switch ------------------------------------------------------- */
+
+.sps-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.sps-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.sps-switch__slider {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-pill);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.sps-switch__slider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform var(--transition), background var(--transition);
+}
+
+.sps-switch input:checked + .sps-switch__slider {
+  background: var(--status-accent, #22d3ee);
+  border-color: transparent;
+}
+
+.sps-switch input:checked + .sps-switch__slider::before {
+  transform: translateX(18px);
+  background: #06121a;
+}
+
+.sps-switch input:focus-visible + .sps-switch__slider {
+  outline: 2px solid var(--status-accent, #22d3ee);
+  outline-offset: 2px;
+}
+
+/* Subscribers list ----------------------------------------------------- */
+
+.sps-subscriber-email {
+  font-family: var(--font-mono);
+  font-size: 12.5px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+
+.sps-subscriber-created {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Modal datetime inputs ------------------------------------------------ */
+
+.sps-datetime-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 560px) {
+  .spub-subscribe__form {
+    flex-direction: column;
+  }
+
+  .sps-datetime-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sps-subscriber-created {
+    display: none;
+  }
+}

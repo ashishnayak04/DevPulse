@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — DevPulse</title>
+  <meta name="description" content="DevPulse Privacy Policy — what data we collect, how we use it, how long we keep it, and the rights you have over it.">
+  <meta name="author" content="Ashish Nayak">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+
+  <!-- Fonts preconnect -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/sections.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="css/legal.css">
+</head>
+<body>
+
+  <!-- Background grid -->
+  <div class="bg-grid"></div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       NAVIGATION
+       ═══════════════════════════════════════════════════════ -->
+  <nav class="nav" id="nav">
+    <div class="nav__inner">
+      <a href="/" class="nav__logo" aria-label="DevPulse home">
+        <span class="gradient-text">Dev</span>Pulse
+        <span class="nav__logo-pulse"></span>
+      </a>
+
+      <div class="nav__links" id="navLinks">
+        <a href="index.html#features" class="nav__link">Features</a>
+        <a href="index.html#how-it-works" class="nav__link">How It Works</a>
+        <a href="index.html#demo" class="nav__link">Live Demo</a>
+        <a href="index.html#open-source" class="nav__link">Open Source</a>
+        <a href="/login" class="btn btn--primary nav__cta">Get Started</a>
+      </div>
+
+      <button class="nav__toggle" id="navToggle" aria-label="Toggle navigation">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div class="nav__overlay" id="navOverlay"></div>
+  </nav>
+
+  <main class="legal-main">
+    <div class="legal-page">
+
+      <!-- Header -->
+      <header class="legal-header">
+        <h1>Privacy Policy</h1>
+        <p class="legal-updated">Last updated: August 23, 2026</p>
+      </header>
+
+      <div class="legal-body">
+
+        <!-- 01 · Data We Collect -->
+        <section class="legal-section" id="data-we-collect">
+          <h2>Data We Collect</h2>
+          <p>To run endpoint monitoring we need to store two categories of information: what identifies you, and what your monitors produce.</p>
+          <ul>
+            <li><strong>Account data</strong> — your email address, username, and a securely hashed password (or the identity handed to us by Google/GitHub if you sign in with OAuth). We never see or store your raw password.</li>
+            <li><strong>Monitoring data</strong> — the URLs of the endpoints you configure and the health-check results they generate: HTTP status codes, response times, up/down state transitions, and check timestamps.</li>
+            <li><strong>Configuration</strong> — check intervals, alert thresholds, webhook URLs, and notification preferences you set for each endpoint.</li>
+            <li><strong>Technical logs</strong> — standard server logs such as IP address, user agent, and request timestamps, used for security and abuse prevention.</li>
+          </ul>
+          <p>We do not collect the response bodies of your monitored endpoints, and we do not read the traffic that passes between your services and their clients.</p>
+        </section>
+
+        <!-- 02 · How We Use Your Data -->
+        <section class="legal-section" id="how-we-use-your-data">
+          <h2>How We Use Your Data</h2>
+          <p>Your data is used to operate the service you signed up for — nothing more:</p>
+          <ul>
+            <li>Performing health checks on the endpoints you configure and streaming results to your dashboard in real time.</li>
+            <li>Sending transactional email: outage and recovery alerts, verification emails, password resets, and critical account notices.</li>
+            <li>Authenticating you and keeping your account secure.</li>
+            <li>Detecting and preventing abuse — for example, endpoints used to attack third-party systems.</li>
+          </ul>
+          <p><strong>We do not sell your data.</strong> We do not share monitoring results with anyone unless you explicitly publish them yourself via a public status page, and we do not use your endpoint data for advertising or profiling.</p>
+        </section>
+
+        <!-- 03 · Data Retention -->
+        <section class="legal-section" id="data-retention">
+          <h2>Data Retention</h2>
+          <p>We keep data only as long as it is useful for the feature it powers:</p>
+          <ul>
+            <li><strong>Ping logs</strong> (individual check results) are retained according to the retention window of your plan — for example, 90 days on the free tier — after which they are permanently purged. Aggregate uptime statistics survive the purge; raw ping records do not.</li>
+            <li><strong>Account and configuration data</strong> are retained for as long as your account is active.</li>
+          </ul>
+          <p>When you request account deletion, all associated endpoints, ping logs, alerts, and status pages are removed in a cascade within <strong>30 days</strong>. Some minimal records (e.g. invoice history or abuse-prevention entries) may be kept where legally required.</p>
+        </section>
+
+        <!-- 04 · Your Rights (GDPR) -->
+        <section class="legal-section" id="your-rights">
+          <h2>Your Rights (GDPR)</h2>
+          <p>If you are in the EU/EEA or a jurisdiction with similar protections, you have the following rights over your personal data:</p>
+          <ul>
+            <li><strong>Access</strong> — request a copy of the personal data we hold about you.</li>
+            <li><strong>Rectification</strong> — correct inaccurate account information directly from your settings page.</li>
+            <li><strong>Erasure</strong> — delete your account and its data at any time.</li>
+            <li><strong>Portability</strong> — export your endpoint configuration and monitoring history in a machine-readable format using the in-app Export feature.</li>
+          </ul>
+          <p>To exercise any of these rights, contact us at <a href="mailto:support@devpulse.io">support@devpulse.io</a>. We respond to verified requests within 30 days.</p>
+        </section>
+
+        <!-- 05 · Cookies -->
+        <section class="legal-section" id="cookies">
+          <h2>Cookies</h2>
+          <p>We keep cookies deliberately minimal:</p>
+          <ul>
+            <li><strong>Essential cookies</strong> — an authentication session cookie so you stay logged in. The app cannot function without it; there is no way to opt out while using the dashboard.</li>
+            <li><strong>Optional analytics cookies</strong> — if enabled, privacy-friendly aggregate analytics help us understand which landing pages are useful. They never identify you personally and can be declined without affecting any feature.</li>
+          </ul>
+          <p>No advertising cookies, no cross-site trackers, no fingerprinting.</p>
+        </section>
+
+        <!-- 06 · Third-Party Services -->
+        <section class="legal-section" id="third-party-services">
+          <h2>Third-Party Services</h2>
+          <p>A small number of processors receive limited data strictly to provide the service:</p>
+          <ul>
+            <li><strong>Email delivery provider (SMTP)</strong> — sends transactional email (alerts, verification, password resets) on our behalf. Receives your email address and message content.</li>
+            <li><strong>OAuth providers (Google, GitHub)</strong> — if you sign in with one of them, we receive only your identity identifier, email address, and display name. We never post to your accounts.</li>
+            <li><strong>PagerDuty (optional)</strong> — only if you configure the integration yourself; alert payloads are then delivered to PagerDuty under their own privacy policy.</li>
+          </ul>
+          <p>We do not otherwise disclose your data to third parties except where required by law.</p>
+        </section>
+
+        <!-- 07 · Contact -->
+        <section class="legal-section" id="contact">
+          <h2>Contact</h2>
+          <p>Questions about this policy, or a data request? Reach us at <a href="mailto:support@devpulse.io">support@devpulse.io</a>.</p>
+          <p class="legal-example">DevPulse — Open source API health monitoring.</p>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════
+       FOOTER
+       ═══════════════════════════════════════════════════════ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer__inner">
+        <div class="footer__brand">
+          <div class="nav__logo" style="font-size:var(--fs-lg);">
+            <span class="gradient-text">Dev</span>Pulse
+            <span class="nav__logo-pulse"></span>
+          </div>
+          <p>Monitor your APIs. Sleep in peace.</p>
+        </div>
+
+        <div class="footer__links">
+          <a href="https://github.com/ashishnayak04/DevPulse" class="footer__link" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/ashishnayak04/DevPulse#readme" class="footer__link" target="_blank" rel="noopener">Docs</a>
+          <a href="index.html#features" class="footer__link">Features</a>
+          <a href="https://github.com/ashishnayak04/DevPulse/blob/main/LICENSE" class="footer__link" target="_blank" rel="noopener">License</a>
+          <a href="privacy.html" class="footer__link">Privacy Policy</a>
+          <a href="terms.html" class="footer__link">Terms of Service</a>
+        </div>
+
+        <div class="footer__credit">
+          Built by <strong style="color:var(--text-primary);">Ashish Nayak</strong>
+        </div>
+      </div>
+
+      <div class="footer__bottom">
+        <div class="footer__heartbeat">
+          <svg viewBox="0 0 1200 30" preserveAspectRatio="none">
+            <path d="M0,15 L100,15 L120,15 L130,3 L140,27 L150,8 L160,22 L170,12 L180,15 L300,15 L320,15 L330,3 L340,27 L350,8 L360,22 L370,12 L380,15 L500,15 L520,15 L530,3 L540,27 L550,8 L560,22 L570,12 L580,15 L700,15 L720,15 L730,3 L740,27 L750,8 L760,22 L770,12 L780,15 L900,15 L920,15 L930,3 L940,27 L950,8 L960,22 L970,12 L980,15 L1100,15 L1120,15 L1130,3 L1140,27 L1150,8 L1160,22 L1170,12 L1180,15 L1200,15"
+              fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ═══════════════════════════════════════════════════════
+       SCRIPTS
+       ═══════════════════════════════════════════════════════ -->
+  <script src="js/nav.js"></script>
+  <script src="js/cookie-banner.js"></script>
+</body>
+</html>

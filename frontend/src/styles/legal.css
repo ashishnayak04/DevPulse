@@ -1,0 +1,77 @@
+/* ------------------------------------------------------------------ */
+/* Legal pages (public /privacy and /terms routes)                     */
+/* ------------------------------------------------------------------ */
+
+.legal-wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 48px 20px;
+}
+
+.legal-back {
+  display: inline-block;
+  margin-bottom: 24px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.legal-back:hover {
+  color: var(--accent-text);
+}
+
+.legal-wrap h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+
+.legal-updated {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.legal-wrap h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent-text);
+  margin-top: 32px;
+  margin-bottom: 10px;
+}
+
+.legal-wrap p,
+.legal-wrap li {
+  color: var(--text-secondary);
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+.legal-wrap p {
+  margin-bottom: 10px;
+}
+
+.legal-wrap ul {
+  padding-left: 20px;
+  margin: 8px 0 12px;
+}
+
+.legal-wrap li {
+  margin-bottom: 6px;
+}
+
+.legal-wrap strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.legal-wrap a {
+  color: var(--accent-text);
+}
+
+.legal-example {
+  font-style: italic;
+  color: var(--text-muted);
+}

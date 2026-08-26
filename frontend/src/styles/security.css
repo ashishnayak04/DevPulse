@@ -1,0 +1,259 @@
+/* ─── Settings · Security section ──────────────────────── */
+
+/* Two-Factor Authentication */
+
+.sec-2fa-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.sec-2fa-status__info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sec-2fa-status__label {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.sec-2fa-status__hint {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* TOTP setup wizard */
+
+.sec-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sec-setup__qrwrap {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  background: #ffffff;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.sec-setup__qr {
+  width: 168px;
+  height: 168px;
+  display: block;
+}
+
+.sec-setup__note {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin: 0;
+}
+
+.sec-secret-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sec-secret {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* Backup codes */
+
+.sec-codes-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger-text);
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin: 0;
+}
+
+.sec-codes {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  color: var(--text-primary);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.sec-codes__item {
+  text-align: center;
+  letter-spacing: 0.06em;
+  padding: 4px 0;
+}
+
+@media (min-width: 560px) {
+  .sec-codes {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Active sessions */
+
+.sec-sessions-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sec-sessions-toolbar__meta {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.sec-session-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sec-session-row:last-child {
+  border-bottom: none;
+}
+
+.sec-session-row--current {
+  background: var(--accent-soft);
+}
+
+.sec-session-row__icon {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.sec-session-row__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.sec-session-row__device {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sec-session-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.sec-session-row__dot::before {
+  content: '·';
+  color: var(--text-muted);
+}
+
+.sec-session-row__actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Danger zone */
+
+.sec-danger-card {
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  background: var(--danger-soft);
+}
+
+.sec-danger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  flex-wrap: wrap;
+}
+
+.sec-danger-row + .sec-danger-row {
+  border-top: 1px solid var(--border);
+}
+
+.sec-danger-row__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--danger-text);
+}
+
+.sec-danger-row__desc {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  max-width: 480px;
+}
+
+/* Delete account modal */
+
+.sec-delete-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sec-delete-warning {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--danger-text);
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin: 12px 0 16px;
+}

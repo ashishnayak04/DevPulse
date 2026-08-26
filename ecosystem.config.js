@@ -2,14 +2,14 @@ module.exports = {
   apps: [
     {
       name: 'devpulse',
-      script: 'src/server.js',
+      script: 'backend/src/server.js',
       instances: 1,
       exec_mode: 'fork',
       env: {
         NODE_ENV: 'production',
         PORT: 4000,
       },
-      env_file: '.env',
+      env_file: 'backend/.env',
       log_date_format: 'YYYY-MM-DD HH:mm:ss',
       error_file: 'logs/err.log',
       out_file: 'logs/out.log',

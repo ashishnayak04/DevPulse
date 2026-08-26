@@ -7,7 +7,7 @@
 
 ## 1. System Overview
 
-DevPulse is a client–server web application. A single Node.js process hosts an Express API, a Socket.io realtime server, and two BullMQ background workers. Persistent state lives in PostgreSQL (via Prisma ORM); Redis provides the job queue broker and the status-page cache. The React SPA is served by Express from `client/dist` in production.
+DevPulse is a client–server web application. A single Node.js process hosts an Express API, a Socket.io realtime server, and two BullMQ background workers. Persistent state lives in PostgreSQL (via Prisma ORM); Redis provides the job queue broker and the status-page cache. The React SPA is served by Express from `frontend/dist` in production.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -21,7 +21,7 @@ DevPulse is a client–server web application. A single Node.js process hosts an
 │  │ Express App (app.js)                                             │  │
 │  │  modules/<feature>/ (routes ─▶ controllers ─▶ services)          │  │
 │  │  helmet · cors · morgan · cookieParser · rate-limit · zod validate │  │
-│  │  static: client/dist · SPA fallback · /api/health                  │  │
+│  │  static: frontend/dist · SPA fallback · /api/health                  │  │
 │  └───────────────▲──────────────────────────────────────┬────────────┘  │
 │                  │                                      │              │
 │  ┌───────────────┴──────────────────┐   ┌───────────────▼────────────┐  │
@@ -106,7 +106,7 @@ Serves REST endpoints and the SPA. The HTTP surface is split into a testable app
 ### 2.6 Cron (`src/jobs/retention.job.js`)
 - `node-cron` job `0 2 * * *` deletes `PingLog` rows older than 90 days (data retention); started by `startRetentionJob()`.
 
-### 2.7 Frontend (`client/`)
+### 2.7 Frontend (`frontend/`)
 - **Stack:** React 19, Vite 6, react-router-dom 7, Recharts, Lucide React, socket.io-client.
 - **`context/AuthContext.jsx`** — auth state + session persistence.
 - **`api.js`** — fetch client; attaches `Authorization: Bearer`; on 401 auto-refreshes via `/auth/refresh` and retries once, else redirects to `/login`.
