@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const Button = ({ children, variant = 'primary', size = 'md', block, loading, icon: Icon, className = '', ...props }) => {
+export const Button = React.memo(({ children, variant = 'primary', size = 'md', block, loading, icon: Icon, className = '', ...props }) => {
   const classes = [
     'btn',
     `btn--${variant}`,
@@ -24,4 +24,4 @@ export const Button = ({ children, variant = 'primary', size = 'md', block, load
       )}
     </button>
   );
-};
+});

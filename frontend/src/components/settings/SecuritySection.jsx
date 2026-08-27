@@ -216,27 +216,20 @@ export const SecuritySection = () => {
   const exportData = async () => {
     setExporting(true);
     try {
-      const res = await fetch('/api/auth/export', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+      const res = await api.request('/auth/export', {
+        method: 'GET',
+        headers: { Accept: 'application/octet-stream' },
       });
-      if (!res.ok) {
-        throw new Error('Export failed. Please try again.');
+      if (res instanceof Blob) {
+        const url = URL.createObjectURL(res);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'devpulse-export.json';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
       }
-
-      const disposition = res.headers.get('Content-Disposition') || '';
-      const match = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
-      const filename = match ? match[1] : 'devpulse-export.json';
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-
       addToast('Your data export has been downloaded', 'success');
     } catch (err) {
       addToast(err.message || 'Export failed', 'error');
@@ -254,21 +247,7 @@ export const SecuritySection = () => {
     if (!canDeleteAccount) return;
     setDeleting(true);
     try {
-      // api.delete() sends no body — use raw fetch so the password reaches the server.
-      const res = await fetch('/api/auth/account', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
-        },
-        body: JSON.stringify({ password: deletePassword }),
-      });
-
-      const payload = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(payload?.error?.message || 'Failed to delete account');
-      }
-
+      await api.delete('/auth/account', { password: deletePassword });
       localStorage.removeItem('accessToken');
       window.location.href = '/';
     } catch (err) {

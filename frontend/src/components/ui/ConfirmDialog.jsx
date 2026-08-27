@@ -3,7 +3,7 @@ import { AlertTriangle } from 'lucide-react';
 import { Modal } from './Modal';
 import { Button } from './Button';
 
-export const ConfirmDialog = ({ isOpen, title, description, confirmLabel = 'Delete', onClose, onConfirm, loading }) => (
+export const ConfirmDialog = React.memo(({ isOpen, title, description, confirmLabel = 'Delete', onClose, onConfirm, loading }) => (
   <Modal isOpen={isOpen} onClose={onClose} ariaLabel={title} variant="center">
     <div style={{ padding: 4 }}>
       <div className="confirm-icon">
@@ -21,4 +21,4 @@ export const ConfirmDialog = ({ isOpen, title, description, confirmLabel = 'Dele
       </div>
     </div>
   </Modal>
-);
+));

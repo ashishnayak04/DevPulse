@@ -12,6 +12,12 @@ import { Badge } from '../components/ui/Badge';
 import { RelativeTime } from '../components/RelativeTime';
 import { formatTime, groupByDay } from '../utils/time';
 
+const FILTER_OPTIONS = [
+  { value: 'all', label: 'All events' },
+  { value: 'failures', label: 'Failures' },
+  { value: 'recoveries', label: 'Recoveries' },
+];
+
 function FeedSkeleton({ count = 8 }) {
   return (
     <Card>
@@ -104,11 +110,7 @@ export const Activity = () => {
             ariaLabel="Filter events"
             value={filter}
             onChange={setFilter}
-            options={[
-              { value: 'all', label: 'All events' },
-              { value: 'failures', label: 'Failures' },
-              { value: 'recoveries', label: 'Recoveries' },
-            ]}
+            options={FILTER_OPTIONS}
           />
 
           <div style={{ marginTop: 20 }}>

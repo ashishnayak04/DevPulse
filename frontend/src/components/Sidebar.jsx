@@ -9,7 +9,7 @@ const Logo = ({ size = 20 }) => (
   </span>
 );
 
-export const Sidebar = ({ isOpen, onClose }) => {
+export const Sidebar = React.memo(({ isOpen, onClose }) => {
   const { user, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -102,4 +102,5 @@ export const Sidebar = ({ isOpen, onClose }) => {
       </aside>
     </>
   );
-};
+});
+

@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const EmptyState = ({ icon: Icon, title, description, action }) => (
+export const EmptyState = React.memo(({ icon: Icon, title, description, action }) => (
   <div className="empty-state">
     {Icon && (
       <div className="empty-state__icon">
@@ -11,4 +11,4 @@ export const EmptyState = ({ icon: Icon, title, description, action }) => (
     {description && <p className="empty-state__desc">{description}</p>}
     {action && <div style={{ marginTop: 20 }}>{action}</div>}
   </div>
-);
+));

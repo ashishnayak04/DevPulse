@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const Segmented = ({ options, value, onChange, ariaLabel }) => (
+export const Segmented = React.memo(({ options, value, onChange, ariaLabel }) => (
   <div className="segmented" role="tablist" aria-label={ariaLabel}>
     {options.map((opt) => (
       <button
@@ -14,4 +14,4 @@ export const Segmented = ({ options, value, onChange, ariaLabel }) => (
       </button>
     ))}
   </div>
-);
+));

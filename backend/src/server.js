@@ -20,6 +20,8 @@ async function start() {
     await prisma.$connect();
     logger.info('Database', 'Connected to PostgreSQL');
 
+    app.set('io', io);
+
     startRetentionJob();
     initPingWorker(io);
     initAlertWorker();

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Save, Globe, Edit3, Clock, AlertTriangle } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from './Toast';
@@ -22,13 +22,15 @@ export const EditEndpointModal = ({ isOpen, onClose, endpoint, onUpdate }) => {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [intervalMs, setIntervalMs] = useState(60000);
-  const [method, setMethod] = useState('GET');
-  const [headerRows, setHeaderRows] = useState([emptyHeaderRow()]);
-  const [body, setBody] = useState('');
-  const [expectedCodes, setExpectedCodes] = useState('');
-  const [keywordMatch, setKeywordMatch] = useState('');
-  const [sslCheck, setSslCheck] = useState(false);
-  const [sslExpiryDays, setSslExpiryDays] = useState(30);
+  const [advanced, setAdvanced] = useState({
+    method: 'GET',
+    headerRows: [emptyHeaderRow()],
+    body: '',
+    expectedCodes: '',
+    keywordMatch: '',
+    sslCheck: false,
+    sslExpiryDays: 30,
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { addToast } = useToast();
@@ -38,17 +40,17 @@ export const EditEndpointModal = ({ isOpen, onClose, endpoint, onUpdate }) => {
       setName(endpoint.name || '');
       setUrl(endpoint.url || '');
       setIntervalMs(endpoint.intervalMs || 60000);
-      setMethod(endpoint.method || 'GET');
-      setHeaderRows(headersToRows(endpoint.headers));
-      setBody(endpoint.body || '');
-      setExpectedCodes(
-        Array.isArray(endpoint.expectedStatusCodes) && endpoint.expectedStatusCodes.length > 0
+      setAdvanced({
+        method: endpoint.method || 'GET',
+        headerRows: headersToRows(endpoint.headers),
+        body: endpoint.body || '',
+        expectedCodes: Array.isArray(endpoint.expectedStatusCodes) && endpoint.expectedStatusCodes.length > 0
           ? endpoint.expectedStatusCodes.join(', ')
-          : ''
-      );
-      setKeywordMatch(endpoint.keywordMatch || '');
-      setSslCheck(Boolean(endpoint.sslCheck));
-      setSslExpiryDays(endpoint.sslExpiryDays || 30);
+          : '',
+        keywordMatch: endpoint.keywordMatch || '',
+        sslCheck: Boolean(endpoint.sslCheck),
+        sslExpiryDays: endpoint.sslExpiryDays || 30,
+      });
       setError('');
     }
   }, [endpoint]);
@@ -65,7 +67,7 @@ export const EditEndpointModal = ({ isOpen, onClose, endpoint, onUpdate }) => {
     setLoading(true);
     try {
       const headers = {};
-      for (const row of headerRows) {
+      for (const row of advanced.headerRows) {
         const key = row.key.trim();
         if (key) headers[key] = row.value;
       }
@@ -74,13 +76,13 @@ export const EditEndpointModal = ({ isOpen, onClose, endpoint, onUpdate }) => {
         name,
         url,
         intervalMs: parseInt(intervalMs, 10),
-        method,
+        method: advanced.method,
         headers,
-        body: method === 'POST' || method === 'PUT' ? body : '',
-        expectedStatusCodes: parseExpectedCodes(expectedCodes),
-        keywordMatch: keywordMatch.trim(),
-        sslCheck,
-        sslExpiryDays,
+        body: advanced.method === 'POST' || advanced.method === 'PUT' ? advanced.body : '',
+        expectedStatusCodes: parseExpectedCodes(advanced.expectedCodes),
+        keywordMatch: advanced.keywordMatch.trim(),
+        sslCheck: advanced.sslCheck,
+        sslExpiryDays: advanced.sslExpiryDays,
       });
       onUpdate(data);
       addToast('Endpoint updated successfully', 'success');
@@ -126,28 +128,14 @@ export const EditEndpointModal = ({ isOpen, onClose, endpoint, onUpdate }) => {
           value={intervalMs}
           onChange={(e) => setIntervalMs(Number(e.target.value))}
         >
+          <option value={30000}>30 seconds</option>
           <option value={60000}>1 minute</option>
           <option value={300000}>5 minutes</option>
           <option value={600000}>10 minutes</option>
           <option value={1800000}>30 minutes</option>
         </Select>
 
-        <AdvancedOptionsFields
-          method={method}
-          setMethod={setMethod}
-          headerRows={headerRows}
-          setHeaderRows={setHeaderRows}
-          body={body}
-          setBody={setBody}
-          expectedCodes={expectedCodes}
-          setExpectedCodes={setExpectedCodes}
-          keywordMatch={keywordMatch}
-          setKeywordMatch={setKeywordMatch}
-          sslCheck={sslCheck}
-          setSslCheck={setSslCheck}
-          sslExpiryDays={sslExpiryDays}
-          setSslExpiryDays={setSslExpiryDays}
-        />
+        <AdvancedOptionsFields advanced={advanced} onAdvancedChange={setAdvanced} />
 
         {error && (
           <div className="auth-error animate-slide-down" role="alert">

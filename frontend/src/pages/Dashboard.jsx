@@ -19,6 +19,11 @@ import { api } from '../api';
 import { formatInterval } from '../utils/time';
 
 const ENDPOINT_HISTORY_LIMIT = 24;
+const STATUS_FILTER_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'up', label: 'Up' },
+  { value: 'down', label: 'Down' },
+];
 
 function BoardSkeleton({ count = 5 }) {
   return (
@@ -79,10 +84,10 @@ export const Dashboard = () => {
         setEndpoints(data);
 
         const historyEntries = await Promise.allSettled(
-          data.map(async (ep) => {
-            const res = await api.get(`/endpoints/${ep.id}/logs?limit=${ENDPOINT_HISTORY_LIMIT}`);
-            return [ep.id, res.logs || []];
-          })
+          data.map((ep) =>
+            api.get(`/endpoints/${ep.id}/logs?limit=${ENDPOINT_HISTORY_LIMIT}`)
+              .then((res) => [ep.id, res.logs || []])
+          )
         );
 
         if (cancelled) return;
@@ -102,6 +107,28 @@ export const Dashboard = () => {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  const refetchEndpoints = useCallback(async () => {
+    try {
+      const data = await api.get('/endpoints');
+      setEndpoints(data);
+
+      const historyEntries = await Promise.allSettled(
+        data.map((ep) =>
+          api.get(`/endpoints/${ep.id}/logs?limit=${ENDPOINT_HISTORY_LIMIT}`)
+            .then((res) => [ep.id, res.logs || []])
+        )
+      );
+
+      const next = {};
+      for (const entry of historyEntries) {
+        if (entry.status === 'fulfilled') next[entry.value[0]] = entry.value[1];
+      }
+      setHistory(next);
+    } catch (err) {
+      console.error('Failed to refetch endpoints:', err);
+    }
   }, []);
 
   useEffect(() => {
@@ -134,13 +161,47 @@ export const Dashboard = () => {
       });
     };
 
-    socket.on('ping:result', handlePingResult);
-    return () => socket.off('ping:result', handlePingResult);
-  }, [socket]);
+    const handleEndpointCreated = () => {
+      refetchEndpoints();
+    };
 
-  const handleAddEndpoint = useCallback((newEndpoint) => {
-    setEndpoints((prev) => [newEndpoint, ...prev]);
-  }, []);
+    const handleEndpointUpdated = (data) => {
+      setEndpoints((prev) =>
+        prev.map((ep) => (ep.id === data.id ? { ...ep, ...data } : ep))
+      );
+    };
+
+    const handleEndpointDeleted = (data) => {
+      setEndpoints((prev) => prev.filter((ep) => ep.id !== data.id));
+      setHistory((prev) => {
+        const next = { ...prev };
+        delete next[data.id];
+        return next;
+      });
+    };
+
+    socket.on('ping:result', handlePingResult);
+    socket.on('endpoint:created', handleEndpointCreated);
+    socket.on('endpoint:updated', handleEndpointUpdated);
+    socket.on('endpoint:deleted', handleEndpointDeleted);
+    return () => {
+      socket.off('ping:result', handlePingResult);
+      socket.off('endpoint:created', handleEndpointCreated);
+      socket.off('endpoint:updated', handleEndpointUpdated);
+      socket.off('endpoint:deleted', handleEndpointDeleted);
+    };
+  }, [socket, refetchEndpoints]);
+
+  const handleAddEndpoint = useCallback(async (newEndpoint) => {
+    setEndpoints((prev) => {
+      if (prev.some((ep) => ep.id === newEndpoint.id)) return prev;
+      return [newEndpoint, ...prev];
+    });
+    setHistory((prev) => ({ ...prev, [newEndpoint.id]: [] }));
+    try {
+      await refetchEndpoints();
+    } catch {}
+  }, [refetchEndpoints]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -309,11 +370,7 @@ export const Dashboard = () => {
               ariaLabel="Filter by status"
               value={statusFilter}
               onChange={setStatusFilter}
-              options={[
-                { value: 'all', label: 'All' },
-                { value: 'up', label: 'Up' },
-                { value: 'down', label: 'Down' },
-              ]}
+              options={STATUS_FILTER_OPTIONS}
             />
           </div>
 

@@ -109,8 +109,12 @@ class ApiClient {
     return this.request(endpoint, { method: 'PATCH', body: JSON.stringify(body) });
   }
 
-  delete(endpoint) {
-    return this.request(endpoint, { method: 'DELETE' });
+  delete(endpoint, body) {
+    const options = { method: 'DELETE' };
+    if (body !== undefined) {
+      options.body = JSON.stringify(body);
+    }
+    return this.request(endpoint, options);
   }
 }
 

@@ -21,7 +21,7 @@ export const Input = React.forwardRef(
 );
 Input.displayName = 'Input';
 
-export const Select = ({ label, icon: Icon, hint, children, ...props }) => (
+export const Select = React.memo(({ label, icon: Icon, hint, children, ...props }) => (
   <div className="field">
     {label && <label className="field__label">{label}</label>}
     <div className="field__control">
@@ -35,4 +35,4 @@ export const Select = ({ label, icon: Icon, hint, children, ...props }) => (
     </div>
     {hint && <p className="field__hint">{hint}</p>}
   </div>
-);
+));

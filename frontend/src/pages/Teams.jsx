@@ -6,8 +6,6 @@ import {
   Monitor,
   Settings as SettingsIcon,
   Plus,
-  X,
-  Trash2,
   Mail,
 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
@@ -19,11 +17,14 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
-import { Input, Select as UiSelect } from '../components/ui/Input';
+import { Input } from '../components/ui/Input';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { RelativeTime } from '../components/RelativeTime';
+import { MembersTab } from '../components/teams/MembersTab';
+import { InvitesSection } from '../components/teams/InvitesSection';
+import { EndpointsTab } from '../components/teams/EndpointsTab';
+import { SettingsTab } from '../components/teams/SettingsTab';
 import '../styles/teams.css';
 
 function slugify(value) {
@@ -41,8 +42,6 @@ const RoleBadge = ({ role }) => (
   </Badge>
 );
 
-/* ─── List mode ────────────────────────────────────────── */
-
 const TeamGridSkeleton = () => (
   <div className="team-grid">
     {Array.from({ length: 3 }).map((_, i) => (
@@ -57,452 +56,6 @@ const TeamGridSkeleton = () => (
   </div>
 );
 
-/* ─── Detail mode ──────────────────────────────────────── */
-
-const MembersTab = ({ slug, detail, user, onChanged, addToast }) => {
-  const canManage = ['OWNER', 'ADMIN'].includes(detail.myRole);
-  const [confirmTarget, setConfirmTarget] = useState(null);
-  const [busy, setBusy] = useState(false);
-
-  const handleRoleChange = async (member, role) => {
-    try {
-      await api.patch(`/teams/${slug}/members/${member.userId}`, { role });
-      addToast(`Role updated for ${member.username}`, 'success');
-      onChanged();
-    } catch (err) {
-      addToast(err.message || 'Failed to update role', 'error');
-    }
-  };
-
-  const handleRemove = async () => {
-    if (!confirmTarget) return;
-    setBusy(true);
-    try {
-      const result = await api.delete(`/teams/${slug}/members/${confirmTarget.userId}`);
-      const isSelf = confirmTarget.userId === user.id;
-      addToast(result.message || (isSelf ? `You left "${detail.team.name}"` : 'Member removed'), 'success');
-      setConfirmTarget(null);
-      onChanged(isSelf ? '/teams' : undefined);
-    } catch (err) {
-      addToast(err.message || 'Failed to remove member', 'error');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Card>
-      <table className="team-table">
-        <thead>
-          <tr>
-            <th>Member</th>
-            <th>Role</th>
-            <th>Joined</th>
-            <th style={{ width: 110 }} aria-label="Actions" />
-          </tr>
-        </thead>
-        <tbody>
-          {detail.members.map((m) => {
-            const isSelf = m.userId === user.id;
-            return (
-              <tr key={m.userId}>
-                <td className="team-table__user">
-                  <div className="team-table__username">{m.username}</div>
-                  <div className="team-table__email">{m.email}</div>
-                </td>
-                <td>
-                  {canManage && m.role !== 'OWNER' ? (
-                    <select
-                      className="team-role-select"
-                      value={m.role}
-                      onChange={(e) => handleRoleChange(m, e.target.value)}
-                    >
-                      <option value="ADMIN">ADMIN</option>
-                      <option value="MEMBER">MEMBER</option>
-                      <option value="VIEWER">VIEWER</option>
-                    </select>
-                  ) : (
-                    <RoleBadge role={m.role} />
-                  )}
-                </td>
-                <td className="team-table__muted">
-                  <RelativeTime time={m.joinedAt} />
-                </td>
-                <td style={{ textAlign: 'right' }}>
-                  {m.role !== 'OWNER' && (canManage || isSelf) && (
-                    <Button variant="danger-ghost" size="sm" onClick={() => setConfirmTarget(m)}>
-                      {isSelf ? 'Leave' : 'Remove'}
-                    </Button>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-
-      <ConfirmDialog
-        isOpen={!!confirmTarget}
-        title={confirmTarget?.userId === user.id ? 'Leave this team?' : 'Remove member?'}
-        description={
-          confirmTarget?.userId === user.id
-            ? `You will lose access to "${detail.team.name}" and its shared endpoints.`
-            : `${confirmTarget?.username} will lose access to "${detail.team.name}".`
-        }
-        confirmLabel={confirmTarget?.userId === user.id ? 'Leave team' : 'Remove'}
-        loading={busy}
-        onClose={() => setConfirmTarget(null)}
-        onConfirm={handleRemove}
-      />
-    </Card>
-  );
-};
-
-const InvitesSection = ({ slug, detail, canManage, onInvited }) => {
-  const { addToast } = useToast();
-  const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState('MEMBER');
-  const [sending, setSending] = useState(false);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setSending(true);
-    try {
-      await api.post(`/teams/${slug}/invites`, { email, role });
-      addToast('Invitation sent', 'success');
-      setEmail('');
-      setOpen(false);
-      onInvited();
-    } catch (err) {
-      addToast(err.message || 'Failed to send invitation', 'error');
-    } finally {
-      setSending(false);
-    }
-  };
-
-  return (
-    <>
-      <div className="team-section-title">Pending invitations</div>
-      <Card>
-        {detail.invites && detail.invites.length > 0 ? (
-          detail.invites.map((inv) => (
-            <div key={inv.id} className="team-endpoint-row">
-              <Mail size={15} style={{ color: 'var(--text-muted)' }} />
-              <div className="team-endpoint-row__body">
-                <div className="team-endpoint-row__name">{inv.email}</div>
-                <div className="team-endpoint-row__url">
-                  {inv.role} · expires <RelativeTime time={inv.expiresAt} />
-                </div>
-              </div>
-              <Badge tone="warning">PENDING</Badge>
-            </div>
-          ))
-        ) : (
-          <EmptyState
-            icon={UserPlus}
-            title="No pending invites"
-            description={canManage ? 'Invite teammates to monitor endpoints together.' : 'Ask a team admin to invite you.'}
-          />
-        )}
-        <div style={{ padding: '14px 20px', borderTop: detail.invites?.length ? '1px solid var(--border)' : 'none' }}>
-          <Button size="sm" onClick={() => setOpen(true)} disabled={!canManage}>
-            <Plus size={14} />
-            Invite member
-          </Button>
-        </div>
-      </Card>
-
-      <Modal isOpen={open} onClose={() => setOpen(false)} icon={UserPlus} title="Invite member" subtitle={`They'll get an email invite for ${detail.team.name}`}>
-        <form onSubmit={submit}>
-          <Input
-            label="Email"
-            type="email"
-            required
-            placeholder="teammate@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <UiSelect label="Role" value={role} onChange={(e) => setRole(e.target.value)}>
-            <option value="MEMBER">MEMBER</option>
-            <option value="ADMIN">ADMIN</option>
-            <option value="VIEWER">VIEWER</option>
-          </UiSelect>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
-            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" loading={sending}>
-              Send invite
-            </Button>
-          </div>
-        </form>
-      </Modal>
-    </>
-  );
-};
-
-const EndpointsTab = ({ slug, detail, canManage, myEndpoints, fetchMyEndpoints, onChanged, addToast }) => {
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (open) fetchMyEndpoints();
-  }, [open, fetchMyEndpoints]);
-
-  const attachedIds = new Set(detail.endpoints.map((ep) => ep.id));
-  const available = (myEndpoints || []).filter((ep) => !attachedIds.has(ep.id));
-
-  const attach = async (endpointId) => {
-    try {
-      const result = await api.post(`/teams/${slug}/endpoints`, { endpointId });
-      addToast(result.message || 'Endpoint attached', 'success');
-      setOpen(false);
-      onChanged();
-    } catch (err) {
-      addToast(err.message || 'Failed to attach endpoint', 'error');
-    }
-  };
-
-  const detach = async (ep) => {
-    try {
-      await api.delete(`/teams/${slug}/endpoints/${ep.id}`);
-      addToast(`${ep.name} detached`, 'success');
-      onChanged();
-    } catch (err) {
-      addToast(err.message || 'Failed to detach endpoint', 'error');
-    }
-  };
-
-  return (
-    <Card>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '14px 20px',
-          borderBottom: detail.endpoints.length ? '1px solid var(--border)' : 'none',
-        }}
-      >
-        <span className="sp-list__title" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <Monitor size={14} />
-          Shared endpoints
-        </span>
-        {canManage && (
-          <Button size="sm" onClick={() => setOpen(true)}>
-            <Plus size={14} />
-            Add endpoint
-          </Button>
-        )}
-      </div>
-
-      {detail.endpoints.length === 0 ? (
-        <EmptyState
-          icon={Monitor}
-          title="No endpoints attached"
-          description={
-            canManage
-              ? 'Attach one of your monitors to share its status with the team.'
-              : 'Team admins can attach endpoints to share here.'
-          }
-        />
-      ) : (
-        detail.endpoints.map((ep) => {
-          const isUp = ep.status === 'UP';
-          return (
-            <div key={ep.id} className="team-endpoint-row">
-              <span className={`team-endpoint-dot ${isUp ? 'team-endpoint-dot--up' : 'team-endpoint-dot--down'}`} aria-hidden="true" />
-              <div className="team-endpoint-row__body">
-                <div className="team-endpoint-row__name">{ep.name}</div>
-                <div className="team-endpoint-row__url">{ep.url}</div>
-              </div>
-              <Badge tone={isUp ? 'up' : 'down'} dot>
-                {isUp ? 'UP' : 'DOWN'}
-              </Badge>
-              {!ep.isActive && <span className="team-table__muted">paused</span>}
-              {canManage && (
-                <button className="icon-btn" onClick={() => detach(ep)} aria-label={`Detach ${ep.name}`}>
-                  <X size={15} />
-                </button>
-              )}
-            </div>
-          );
-        })
-      )}
-
-      <Modal
-        isOpen={open}
-        onClose={() => setOpen(false)}
-        icon={Monitor}
-        title="Add endpoint"
-        subtitle="Choose one of your monitors to share with the team"
-      >
-        {available.length === 0 ? (
-          <EmptyState icon={Monitor} title="Nothing to attach" description="All of your active endpoints are already attached, or you have none yet." />
-        ) : (
-          available.map((ep) => (
-            <button
-              key={ep.id}
-              type="button"
-              className="team-endpoint-row"
-              style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
-              onClick={() => attach(ep.id)}
-            >
-              <span className={`team-endpoint-dot ${ep.status === 'UP' ? 'team-endpoint-dot--up' : 'team-endpoint-dot--down'}`} aria-hidden="true" />
-              <div className="team-endpoint-row__body">
-                <div className="team-endpoint-row__name">{ep.name}</div>
-                <div className="team-endpoint-row__url">{ep.url}</div>
-              </div>
-              <Plus size={15} style={{ color: 'var(--accent-text)' }} />
-            </button>
-          ))
-        )}
-      </Modal>
-    </Card>
-  );
-};
-
-const SettingsTab = ({ slug, detail, user, onRenamed, onLeft, addToast }) => {
-  const canManage = ['OWNER', 'ADMIN'].includes(detail.myRole);
-  const isOwner = detail.myRole === 'OWNER';
-  const [name, setName] = useState(detail.team.name);
-  const [saving, setSaving] = useState(false);
-  const [leaveOpen, setLeaveOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [slugInput, setSlugInput] = useState('');
-  const [deleting, setDeleting] = useState(false);
-  const [leaving, setLeaving] = useState(false);
-
-  useEffect(() => {
-    setName(detail.team.name);
-  }, [detail.team.name]);
-
-  const rename = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await api.patch(`/teams/${slug}`, { name });
-      addToast('Team renamed', 'success');
-      onRenamed();
-    } catch (err) {
-      addToast(err.message || 'Failed to rename team', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const leave = async () => {
-    setLeaving(true);
-    try {
-      const result = await api.delete(`/teams/${slug}/members/${user.id}`);
-      addToast(result.message || `You left "${detail.team.name}"`, 'success');
-      setLeaveOpen(false);
-      onLeft();
-    } catch (err) {
-      addToast(err.message || 'Failed to leave team', 'error');
-    } finally {
-      setLeaving(false);
-    }
-  };
-
-  const deleteTeam = async () => {
-    setDeleting(true);
-    try {
-      await api.delete(`/teams/${slug}`);
-      addToast('Team deleted', 'success');
-      setDeleteOpen(false);
-      onLeft();
-    } catch (err) {
-      addToast(err.message || 'Failed to delete team', 'error');
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  return (
-    <Card>
-      <div className="team-section-title">Team name</div>
-      <form className="team-rename-form" onSubmit={rename}>
-        <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} disabled={!canManage} maxLength={50} />
-        <Button type="submit" loading={saving} disabled={!canManage || name.trim() === detail.team.name}>
-          Save
-        </Button>
-      </form>
-
-      <div className="team-section-title" style={{ color: 'var(--danger-text)' }}>
-        Danger zone
-      </div>
-      <div className="team-danger-zone">
-        {!isOwner && (
-          <div className="team-danger-zone__row">
-            <div>
-              <div className="team-danger-zone__label">Leave team</div>
-              <div className="team-danger-zone__desc">You will lose access to this team's shared endpoints.</div>
-            </div>
-            <Button variant="danger" size="sm" onClick={() => setLeaveOpen(true)}>
-              Leave
-            </Button>
-          </div>
-        )}
-        {isOwner && (
-          <div className="team-danger-zone__row">
-            <div>
-              <div className="team-danger-zone__label">Delete team</div>
-              <div className="team-danger-zone__desc">
-                Permanently deletes the team with all members, invites and endpoint links.
-              </div>
-            </div>
-            <Button variant="danger" size="sm" icon={Trash2} onClick={() => { setSlugInput(''); setDeleteOpen(true); }}>
-              Delete
-            </Button>
-          </div>
-        )}
-      </div>
-
-      <ConfirmDialog
-        isOpen={leaveOpen}
-        title="Leave this team?"
-        description={`You will lose access to "${detail.team.name}". You can only rejoin with a new invitation.`}
-        confirmLabel="Leave team"
-        loading={leaving}
-        onClose={() => setLeaveOpen(false)}
-        onConfirm={leave}
-      />
-
-      <Modal isOpen={deleteOpen} onClose={() => setDeleteOpen(false)} ariaLabel="Delete team" variant="center">
-        <div style={{ padding: 4 }}>
-          <div className="confirm-icon">
-            <Trash2 size={22} />
-          </div>
-          <h2 className="confirm-title">Delete "{detail.team.name}"?</h2>
-          <p className="confirm-desc">
-            This removes all members, pending invites and shared endpoint links. This action cannot be undone.
-            Type <strong>{detail.team.slug}</strong> to confirm.
-          </p>
-          <input
-            className="team-confirm-input"
-            style={{ marginBottom: 14 }}
-            value={slugInput}
-            onChange={(e) => setSlugInput(e.target.value)}
-            placeholder={detail.team.slug}
-            autoFocus
-          />
-          <div className="confirm-actions">
-            <Button variant="secondary" onClick={() => setDeleteOpen(false)} disabled={deleting}>
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={deleteTeam} loading={deleting} disabled={slugInput !== detail.team.slug}>
-              Delete team
-            </Button>
-          </div>
-        </div>
-      </Modal>
-    </Card>
-  );
-};
-
-/* ─── Page ─────────────────────────────────────────────── */
-
 export const Teams = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -510,7 +63,6 @@ export const Teams = () => {
   const { addToast } = useToast();
   const { user } = useAuth();
 
-  // list-mode state
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [teams, setTeams] = useState([]);
   const [invites, setInvites] = useState([]);
@@ -520,7 +72,6 @@ export const Teams = () => {
   const [slugTouched, setSlugTouched] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  // detail-mode state
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(true);
   const [tab, setTab] = useState('members');
@@ -616,7 +167,6 @@ export const Teams = () => {
     }
   };
 
-  /* ─── Detail view ─── */
   if (slug) {
     const canManage = detail ? ['OWNER', 'ADMIN'].includes(detail.myRole) : false;
 
@@ -660,7 +210,6 @@ export const Teams = () => {
                       slug={slug}
                       detail={detail}
                       user={user}
-                      addToast={addToast}
                       onChanged={(redirectTo) => {
                         if (redirectTo) {
                           navigate(redirectTo);
@@ -682,7 +231,6 @@ export const Teams = () => {
                     canManage={canManage}
                     myEndpoints={myEndpoints}
                     fetchMyEndpoints={fetchMyEndpoints}
-                    addToast={addToast}
                     onChanged={fetchDetail}
                   />
                 )}
@@ -692,7 +240,6 @@ export const Teams = () => {
                     slug={slug}
                     detail={detail}
                     user={user}
-                    addToast={addToast}
                     onRenamed={fetchDetail}
                     onLeft={() => navigate('/teams')}
                   />
@@ -704,8 +251,6 @@ export const Teams = () => {
       </div>
     );
   }
-
-  /* ─── List view ─── */
 
   return (
     <div className="app-shell">
@@ -724,7 +269,6 @@ export const Teams = () => {
             }
           />
 
-          {/* Pending invitations */}
           {(invites.length > 0 || emailInviteToken) && (
             <div className="team-invite-strip animate-fade-in">
               {emailInviteToken && (
@@ -785,7 +329,6 @@ export const Teams = () => {
         </div>
       </main>
 
-      {/* Create modal */}
       <Modal isOpen={createOpen} onClose={() => setCreateOpen(false)} icon={Users} title="Create a team" subtitle="Bring your endpoints under one roof">
         <form onSubmit={createTeam}>
           <Input

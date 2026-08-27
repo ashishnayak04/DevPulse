@@ -66,7 +66,7 @@ async function getStatusExtras(userId, now = new Date()) {
   const maintenanceCutoff = new Date(now.getTime() + MAINTENANCE_LOOKAHEAD_HOURS * 60 * 60 * 1000);
   const incidentSince = new Date(now.getTime() - INCIDENT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
 
-  const [configRow, endpointRows, maintenanceRows, incidentRows] = await Promise.all([
+  const [configRow, endpointRows, maintenanceRows] = await Promise.all([
     prisma.statusPageConfig.findUnique({
       where: { userId },
       select: { title: true, description: true, accentColor: true, showLatency: true },
@@ -77,16 +77,21 @@ async function getStatusExtras(userId, now = new Date()) {
       orderBy: { startsAt: 'asc' },
       select: { id: true, title: true, message: true, startsAt: true, endsAt: true },
     }),
-    prisma.incident.findMany({
-      where: {
-        endpointId: { in: endpointRows.map((ep) => ep.id) },
-        resolvedAt: null,
-        startedAt: { gte: incidentSince },
-      },
-      orderBy: { startedAt: 'desc' },
-      select: { id: true, endpointId: true, startedAt: true, durationMs: true, acknowledged: true },
-    }),
   ]);
+
+  const endpointIds = endpointRows.map((ep) => ep.id);
+
+  const incidentRows = endpointIds.length > 0
+    ? await prisma.incident.findMany({
+        where: {
+          endpointId: { in: endpointIds },
+          resolvedAt: null,
+          startedAt: { gte: incidentSince },
+        },
+        orderBy: { startedAt: 'desc' },
+        select: { id: true, endpointId: true, startedAt: true, durationMs: true, acknowledged: true },
+      })
+    : [];
 
   const endpointNameById = new Map(endpointRows.map((ep) => [ep.id, ep.name]));
 
@@ -120,13 +125,23 @@ async function getPublicStatus(username) {
   let cached = false;
 
   const cacheKey = buildCacheKey(username);
-  const hit = await redis.get(cacheKey);
-  if (hit) {
-    statusData = JSON.parse(hit);
-    cached = true;
-  } else {
+  try {
+    const hit = await redis.get(cacheKey);
+    if (hit) {
+      statusData = JSON.parse(hit);
+      cached = true;
+    }
+  } catch {
+    // Redis unavailable — serve fresh data
+  }
+
+  if (!statusData) {
     statusData = await buildBaseStatusData(user);
-    await redis.setex(cacheKey, constants.cache.statusPageTtlSeconds, JSON.stringify(statusData));
+    try {
+      await redis.setex(cacheKey, constants.cache.statusPageTtlSeconds, JSON.stringify(statusData));
+    } catch {
+      // Redis unavailable — skip caching
+    }
   }
 
   const extras = await getStatusExtras(user.id);

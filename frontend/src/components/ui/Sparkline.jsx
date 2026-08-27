@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const Sparkline = ({ data, color = 'var(--accent)', width = 88, height = 26 }) => {
+export const Sparkline = React.memo(({ data, color = 'var(--accent)', width = 88, height = 26 }) => {
   if (!data || data.length === 0) return null;
 
   const values = data.slice(-28);
@@ -32,4 +32,4 @@ export const Sparkline = ({ data, color = 'var(--accent)', width = 88, height = 
       <polyline points={points} stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
-};
+});

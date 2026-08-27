@@ -173,24 +173,25 @@ export const StatusPage = () => {
   const accent = config.accentColor || DEFAULT_ACCENT;
   const showLatency = config.showLatency !== false;
 
+  const endpoints = data.endpoints || [];
   const maintenance = data.maintenance || [];
   const activeMaintenance = maintenance.filter((win) => win.status === 'active');
   const upcomingMaintenance = maintenance.filter((win) => win.status === 'upcoming');
   const incidents = data.incidents || [];
 
-  const downCount = data.endpoints.filter((ep) => ep.status === 'DOWN').length;
+  const downCount = endpoints.filter((ep) => ep.status === 'DOWN').length;
   let bannerClass = 'sp-banner--up';
   let bannerText = 'All systems operational';
 
-  if (downCount > 0 && downCount < data.endpoints.length) {
+  if (downCount > 0 && downCount < endpoints.length) {
     bannerClass = 'sp-banner--partial';
     bannerText = 'Partial system outage';
-  } else if (downCount > 0 && downCount === data.endpoints.length) {
+  } else if (downCount > 0 && downCount === endpoints.length) {
     bannerClass = 'sp-banner--major';
     bannerText = 'Major system outage';
   }
 
-  const upCount = data.endpoints.length - downCount;
+  const upCount = endpoints.length - downCount;
   const heading = config.title || `${username}'s status page`;
   const subtitle = config.description || 'Live status of every monitored service';
 
@@ -232,8 +233,8 @@ export const StatusPage = () => {
               <div className="sp-banner__title">{bannerText}</div>
               <p className="sp-banner__subtitle">
                 {downCount > 0
-                  ? `${downCount} of ${data.endpoints.length} services are down`
-                  : `${data.endpoints.length} ${data.endpoints.length === 1 ? 'service' : 'services'} running smoothly`}
+                  ? `${downCount} of ${endpoints.length} services are down`
+                  : `${endpoints.length} ${endpoints.length === 1 ? 'service' : 'services'} running smoothly`}
               </p>
             </div>
             <span
@@ -277,18 +278,18 @@ export const StatusPage = () => {
                 Services
               </span>
               <span className="sp-list__count">
-                {upCount}/{data.endpoints.length} operational
+                {upCount}/{endpoints.length} operational
               </span>
             </div>
 
-            {data.endpoints.length === 0 ? (
+            {endpoints.length === 0 ? (
               <EmptyState
                 icon={PulseIcon}
                 title="No services listed"
                 description="This status page has not been configured with any endpoints yet."
               />
             ) : (
-              data.endpoints.map((ep) => {
+              endpoints.map((ep) => {
                 const isUp = ep.status === 'UP';
                 return (
                   <div key={ep.id} className="sp-row">

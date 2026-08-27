@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Menu } from 'lucide-react';
 
-export const PageHeader = ({ title, subtitle, onBack, onMenu, left, actions }) => (
+export const PageHeader = React.memo(({ title, subtitle, onBack, onMenu, left, actions }) => (
   <header className="page-head">
     <div className="page-head__left">
       {onMenu && (
@@ -22,4 +22,4 @@ export const PageHeader = ({ title, subtitle, onBack, onMenu, left, actions }) =
     </div>
     {actions && <div className="page-head__actions">{actions}</div>}
   </header>
-);
+));

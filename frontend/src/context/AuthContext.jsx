@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { api } from '../api';
 
 const AuthContext = createContext(null);
@@ -26,8 +26,6 @@ export const AuthProvider = ({ children }) => {
         if (decodedUser) {
           setUser(decodedUser);
           setAccessToken(token);
-          // Fetch the full profile so fields like onboardingCompleted / totpEnabled
-          // (not stored in the JWT) are available to the app.
           try {
             const data = await api.get('/auth/me');
             if (data?.user) setUser(data.user);
@@ -45,7 +43,7 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, []);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
       const data = await api.get('/auth/me');
       if (data?.user) {
@@ -56,27 +54,27 @@ export const AuthProvider = ({ children }) => {
       /* ignore */
     }
     return null;
-  };
+  }, []);
 
-  const updateUser = (patch) => {
+  const updateUser = useCallback((patch) => {
     setUser((prev) => (prev ? { ...prev, ...patch } : prev));
-  };
+  }, []);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const data = await api.post('/auth/login', { email, password });
     localStorage.setItem('accessToken', data.accessToken);
     setAccessToken(data.accessToken);
     setUser(data.user);
-  };
+  }, []);
 
-  const register = async (email, username, password) => {
+  const register = useCallback(async (email, username, password) => {
     const data = await api.post('/auth/register', { email, username, password });
     localStorage.setItem('accessToken', data.accessToken);
     setAccessToken(data.accessToken);
     setUser(data.user);
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await api.post('/auth/logout');
     } catch (e) {
@@ -86,21 +84,23 @@ export const AuthProvider = ({ children }) => {
       setAccessToken(null);
       setUser(null);
     }
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    user,
+    accessToken,
+    isAuthenticated: !!user,
+    isAdmin: user?.role === 'ADMIN',
+    loading,
+    login,
+    register,
+    logout,
+    refreshUser,
+    updateUser
+  }), [user, accessToken, loading, login, register, logout, refreshUser, updateUser]);
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      accessToken,
-      isAuthenticated: !!user,
-      isAdmin: user?.role === 'ADMIN',
-      loading,
-      login,
-      register,
-      logout,
-      refreshUser,
-      updateUser
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
