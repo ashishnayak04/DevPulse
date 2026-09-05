@@ -30,6 +30,18 @@ const config = {
     fromEmail: process.env.SMTP_FROM_EMAIL || 'alerts@devpulse.io',
   },
 
+  aiService: {
+    url: process.env.AI_SERVICE_URL,
+    token: process.env.AI_SERVICE_TOKEN,
+    provider: process.env.AI_PROVIDER || 'openai-compatible',
+    baseUrl: process.env.AI_BASE_URL,
+    model: process.env.AI_MODEL || 'gpt-4o-mini',
+    deepModel: process.env.AI_DEEP_MODEL || 'gpt-4o',
+    maxToolCalls: toInt(process.env.AI_MAX_TOOL_CALLS, 25),
+    timeoutMs: toInt(process.env.AI_TIMEOUT_MS, 120000),
+    temperature: parseFloat(process.env.AI_TEMPERATURE || 0.2),
+  },
+
   clientBuildPath: require('path').join(__dirname, '..', '..', '..', 'frontend', 'dist'),
 };
 

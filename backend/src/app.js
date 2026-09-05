@@ -24,6 +24,7 @@ const statusRoutes = require('./modules/status/status.routes');
 const adminRoutes = require('./modules/admin/admin.routes');
 const webhookRoutes = require('./modules/webhooks/webhook.routes');
 const incidentRoutes = require('./modules/incidents/incident.routes');
+const investigationRoutes = require('./modules/investigations/investigation.routes');
 const statusPageRoutes = require('./modules/statuspage/statuspage.routes');
 const apiKeyRoutes = require('./modules/apikeys/apikey.routes');
 const teamRoutes = require('./modules/teams/team.routes');
@@ -66,6 +67,7 @@ function createApp() {
   app.use('/api/status', statusRoutes);
   app.use('/api/statuspage', statusPageRoutes);
   app.use('/api/incidents', incidentRoutes);
+  app.use('/api/investigations', investigationRoutes);
   app.use('/api/keys', apiKeyRoutes);
   app.use('/api/teams', teamRoutes);
   app.use('/api/notifications', notificationRoutes);

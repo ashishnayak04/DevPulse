@@ -6,6 +6,7 @@ const redis = require('../lib/redis');
 const logger = require('../lib/logger');
 const constants = require('../constants');
 const { alertQueue } = require('../queues/alert.queue');
+const { enqueueInvestigation } = require('../queues/investigation.queue');
 const { invalidateStatusCache } = require('../modules/status/status.service');
 const { isMonitoringEnabled } = require('../lib/platform-settings');
 
@@ -140,10 +141,12 @@ async function checkSslExpiry(endpoint) {
 
 async function openIncident(endpointId, userId) {
   try {
-    await prisma.incident.create({ data: { endpointId, startedAt: new Date() } });
+    const incident = await prisma.incident.create({ data: { endpointId, startedAt: new Date() } });
     logger.info(SCOPE, `Incident opened for endpoint ${endpointId}`);
+    return incident;
   } catch (err) {
     logger.error(SCOPE, `Failed to open incident for endpoint ${endpointId}: ${err.message}`);
+    return null;
   }
 }
 
@@ -243,7 +246,12 @@ function initPingWorker(io) {
           updateData.status = 'DOWN';
           await enqueueStateTransitionAlert({ endpoint, userId, type: 'DOWN', responseTimeMs, failureCount: newFailures });
           logger.info(SCOPE, `${endpoint.name} is DOWN (${newFailures} failures) — alert queued`);
-          await openIncident(endpointId, userId);
+          const incident = await openIncident(endpointId, userId);
+          if (incident) {
+            enqueueInvestigation({ incidentId: incident.id, endpointId, userId }).catch((err) =>
+              logger.error(SCOPE, `Failed to enqueue investigation for incident ${incident.id}: ${err.message}`)
+            );
+          }
         }
 
         await prisma.endpoint.update({

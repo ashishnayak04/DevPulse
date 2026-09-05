@@ -44,6 +44,13 @@ enum TeamRole {
   VIEWER
 }
 
+enum InvestigationStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
 // ─── User ────────────────────────────────────────────────
 
 model User {
@@ -203,6 +210,7 @@ model Incident {
 
   endpoint Endpoint         @relation(fields: [endpointId], references: [id], onDelete: Cascade)
   updates  IncidentUpdate[]
+  investigation Investigation?
 
   @@index([endpointId])
   @@index([startedAt])
@@ -396,4 +404,65 @@ model PlatformSetting {
   announcementMessage String?
   announcementType    String?  @default("info")
   updatedAt           DateTime @updatedAt
+}
+
+// ─── DevPulse 2.0: AI Investigation ─────────────────────────
+
+model Investigation {
+  id                  String               @id @default(uuid())
+  incidentId          String               @unique
+  status              InvestigationStatus  @default(QUEUED)
+  summary             String?
+  rootCause           String?
+  confidence          Float?
+  affectedServices    Json?
+  relatedDeploymentId String?
+  relatedCommitId     String?
+  changedFiles        Json?
+  suggestedFix        Json?
+  risk                String?
+  verificationPlan    String?
+  error               String?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime             @default(now())
+
+  incident Incident              @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  evidence InvestigationEvidence[]
+  toolCalls InvestigationToolCall[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model InvestigationEvidence {
+  id              String   @id @default(uuid())
+  investigationId String
+  sourceType      String
+  sourceKey       String
+  title           String
+  detail          String?
+  classification  String   @default("FACT") // FACT | INFERENCE | HYPOTHESIS
+  sourceUrl       String?
+  payload         Json?
+  createdAt       DateTime @default(now())
+
+  investigation Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+
+  @@index([investigationId])
+}
+
+model InvestigationToolCall {
+  id               String   @id @default(uuid())
+  investigationId  String
+  toolName         String
+  arguments        Json
+  result           Json?
+  status           String   @default("success")
+  durationMs       Int?
+  createdAt        DateTime @default(now())
+
+  investigation Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+
+  @@index([investigationId])
 }

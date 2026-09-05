@@ -55,3 +55,8 @@ coverage/
 *.temp
 .eslintcache
 .stylelintcache
+
+# Python (ai-service)
+__pycache__/
+*.py[cod]
+
