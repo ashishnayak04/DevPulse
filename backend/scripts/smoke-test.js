@@ -4,6 +4,7 @@ constants.rateLimit.authMaxRequestsPerMinute = 10000;
 constants.rateLimit.globalMaxRequestsPerMinute = 10000;
 const { createApp } = require('../src/app');
 const prisma = require('../src/lib/prisma');
+const { initInvestigationWorker, getInvestigationWorker } = require('../src/workers/investigation.worker');
 
 setTimeout(() => { console.log('GLOBAL TIMEOUT'); process.exit(1); }, 90000);
 
@@ -114,6 +115,60 @@ async function main() {
 
   const audit = await request('GET', '/api/admin/audit', null, adminToken);
   check('audit endpoint accessible to ADMIN', audit.status === 200 && Array.isArray(audit.json.data));
+
+  // ─── DevPulse 2.0: AI investigation flow (requires Redis for the queue) ───
+  const redisAvailable = await new Promise((resolve) => {
+    const { Redis } = require('ioredis');
+    const client = new Redis({ host: 'localhost', port: 6379, lazyConnect: true, maxRetriesPerRequest: 1 });
+    client.connect()
+      .then(() => { resolve(client.status === 'ready'); client.disconnect().catch(() => {}); })
+      .catch(() => { resolve(false); });
+  });
+
+  if (!redisAvailable) {
+    console.log('SKIP investigation tests — Redis unavailable');
+  } else {
+    initInvestigationWorker();
+
+    const created = await request('POST', '/api/endpoints', {
+      name: 'smoke-investigate',
+      url: 'https://example.com',
+      intervalMs: 60000,
+    }, adminToken);
+    check('create endpoint (for investigation)', created.status === 201 && !!created.json?.data?.id, JSON.stringify(created.json));
+
+    const endpointId = created.json?.data?.id;
+    const incident = await prisma.incident.create({ data: { endpointId, startedAt: new Date() } });
+
+    const trigger = await request('POST', '/api/investigations', { incidentId: incident.id }, adminToken);
+    check('investigation trigger 201', trigger.status === 201 && trigger.json.data.investigation.incidentId === incident.id, JSON.stringify(trigger.json));
+
+    const preDup = await request('GET', `/api/investigations/${trigger.json.data.investigation.id}`, null, adminToken);
+    const preDupStatus = preDup.json?.data?.investigation?.status;
+    const dup = await request('POST', '/api/investigations', { incidentId: incident.id }, adminToken);
+    if (preDupStatus === 'QUEUED' || preDupStatus === 'RUNNING') {
+      check('investigation already running 409', dup.status === 409 && dup.json?.error?.code === 'INVESTIGATION_IN_PROGRESS');
+    } else {
+      console.log('SKIP 409 dedupe check — investigation already left QUEUED/RUNNING');
+    }
+
+    const list = await request('GET', '/api/investigations', null, adminToken);
+    check('investigation list contains incident', list.status === 200 && list.json.data.items.some((i) => i.incidentId === incident.id), JSON.stringify(list.json));
+
+    let polled;
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      const detail = await request('GET', `/api/investigations/${trigger.json.data.investigation.id}`, null, adminToken);
+      polled = detail.json?.data?.investigation?.status;
+      if (polled === 'FAILED' || polled === 'COMPLETED') break;
+    }
+    check('investigation reaches terminal state', polled === 'FAILED' || polled === 'COMPLETED', JSON.stringify(polled));
+
+    const missing = await request('GET', '/api/investigations/00000000-0000-0000-0000-000000000099', null, adminToken);
+    check('investigation detail 404 for unknown', missing.status === 404);
+
+    await getInvestigationWorker().close();
+  }
 
   await prisma.user.delete({ where: { id: userId } }).catch(() => {});
   console.log(`\nRESULT: ${passed} passed, ${failed} failed`);
