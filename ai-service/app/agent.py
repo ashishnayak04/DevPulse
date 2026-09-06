@@ -106,7 +106,7 @@ TOOL_SPECS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "get_changed_files",
-            "description": "List files changed across a range of commits leading up to a sha (or the latest 10).",
+            "description": "List files changed across a range of commits leading up to a sha (or the latest 10), ranked by proximity to the failure signal (relevance 0..1, minutesFromSignal) with endpoint-name boosts.",
             "parameters": _params(["incidentId", "repositoryId"], {
                 "incidentId": IDENTIFIER,
                 "repositoryId": {"type": "string"},
@@ -404,6 +404,43 @@ async def _mock_investigation(incident_id: str, endpoint_id: str | None) -> Inve
             )
             if diff and diff.get("files"):
                 changed_files = [f.get("filename") for f in diff["files"]]
+                ranked = await tool(
+                    "get_changed_files",
+                    {"incidentId": incident_id, "repositoryId": repo["id"], "sha": commit_sha},
+                )
+                if ranked and ranked.get("files"):
+                    changed_files = [f.get("filename") for f in ranked["files"]]
+                candidate = (ranked or {}).get("files") or []
+                candidate = candidate[0] if candidate else ({"filename": changed_files[0]} if changed_files else None)
+                if candidate:
+                    source = await tool(
+                        "inspect_source_file",
+                        {"incidentId": incident_id, "repositoryId": repo["id"], "path": candidate.get("filename"), "sha": commit_sha},
+                    )
+                    fetched = bool(source and "error" not in source)
+                    evidence.append(
+                        Evidence(
+                            sourceType="source",
+                            sourceKey=f"source:{repo['id']}:{candidate.get('filename')}",
+                            title=f"Inspected candidate source file {candidate.get('filename')}",
+                            detail=(
+                                f"{candidate.get('filename')} ranks closest to the failure signal"
+                                f" (relevance {candidate.get('relevance', 'n/a')}, "
+                                f"{candidate.get('minutesFromSignal', '?')}m out). "
+                                + (
+                                    "Content fetched from GitHub and reviewed for the regression."
+                                    if fetched
+                                    else "Source fetch unavailable (GitHub token not configured); ranking + diff analysis still considered."
+                                )
+                            ),
+                            classification="INFERENCE",
+                            payload={
+                                "relevance": candidate.get("relevance"),
+                                "minutesFromSignal": candidate.get("minutesFromSignal"),
+                                "sourceStatus": "fetched" if fetched else "unavailable",
+                            },
+                        )
+                    )
     elif deployment_events:
         newest = deployment_events[-1]
         related_deployment = newest.get("deploymentId")

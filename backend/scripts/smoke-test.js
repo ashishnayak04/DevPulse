@@ -419,6 +419,13 @@ async function main() {
     const repoDeploys = await request('GET', `/api/github/repos/${repo.id}/deployments`, null, adminToken);
     check('github repo deployments list', repoDeploys.status === 200 && repoDeploys.json.data.items.length === 1, JSON.stringify(repoDeploys.json));
 
+    // ─── DevPulse 2.0 Phase 5: Code Intelligence ───
+    const changedFiles = await request('POST', '/api/internal/ai-context', { tool: 'get_changed_files', arguments: { incidentId: incident.id, repositoryId: repo.id } }, null, aiHeaders());
+    const cf = changedFiles.json?.data;
+    check('get_changed_files ranks by failure-signal proximity', changedFiles.status === 200 && Array.isArray(cf?.files) && cf.files.length === 1 && cf.files[0].filename === 'src/server.js' && typeof cf.files[0].relevance === 'number' && cf.files[0].relevance > 0 && typeof cf.files[0].minutesFromSignal === 'number' && !!cf.files[0].changedBy && !!cf?.signalAt, JSON.stringify(cf));
+    const sourceInspect = await request('POST', '/api/internal/ai-context', { tool: 'inspect_source_file', arguments: { incidentId: incident.id, repositoryId: repo.id, path: 'src/server.js' } }, null, aiHeaders());
+    check('inspect_source_file guarded without GITHUB_TOKEN', sourceInspect.status === 400 && sourceInspect.json?.error?.code === 'GITHUB_NOT_CONFIGURED', JSON.stringify(sourceInspect.json));
+
     const repoForeign = await request('GET', `/api/github/repos/${repo.id}/commits`, null, user2Token);
     check('github repo ownership guard (other user 404)', repoForeign.status === 404, JSON.stringify(repoForeign.json));
 

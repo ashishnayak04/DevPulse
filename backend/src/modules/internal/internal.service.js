@@ -6,6 +6,13 @@ const { getFileContent } = require('../../services/github.service');
 
 const MINUTE_MS = 60 * 1000;
 
+function tokenize(value) {
+  return String(value || '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
 async function resolveIncident(incidentId) {
   const incident = await prisma.incident.findUnique({
     where: { id: incidentId },
@@ -177,7 +184,7 @@ const resolvers = {
     const anchored = sha ? commits.filter((c) => c.sha === sha) : [];
     const targetSha = sha || (commits[0] && commits[0].sha) || null;
     if (!targetSha) {
-      return { repositoryId, baseSha: null, targetSha: null, files: [] };
+      return { repositoryId, baseSha: null, targetSha: null, signalAt: null, files: [] };
     }
     if (sha && anchored.length === 0) {
       throw new HttpError('Commit not found', { statusCode: 404, code: 'NOT_FOUND' });
@@ -194,21 +201,54 @@ const resolvers = {
 
     const files = new Map();
     for (const commit of range) {
+      const touch = commit.authorDate ? new Date(commit.authorDate).getTime() : null;
       for (const change of commit.fileChanges) {
-        files.set(change.filename, {
+        const row = files.get(change.filename) || {
           filename: change.filename,
           status: change.status,
-          additions: change.additions,
-          deletions: change.deletions,
-        });
+          additions: 0,
+          deletions: 0,
+          changedBy: null,
+          changedAt: null,
+        };
+        row.additions += change.additions || 0;
+        row.deletions += change.deletions || 0;
+        if (!row.changedAt || (touch !== null && touch > row.changedAt)) {
+          row.changedAt = touch;
+          row.changedBy = commit.sha;
+          row.status = change.status;
+        }
+        files.set(change.filename, row);
       }
     }
+
+    const signalAt = new Date(incident.startedAt).getTime();
+    const signalTokens = tokenize(`endpoint ${incident.endpoint.url} ${incident.endpoint.name}`).join(' ');
+    const ranked = Array.from(files.values())
+      .map((file) => {
+        const distMin = file.changedAt !== null ? Math.max(0, Math.abs(file.changedAt - signalAt)) / MINUTE_MS : null;
+        let relevance = distMin === null ? 0 : 1 / (1 + distMin / 30);
+        if (tokenize(file.filename).some((tok) => signalTokens.includes(tok))) {
+          relevance = Math.min(1, relevance + 0.2);
+        }
+        return {
+          filename: file.filename,
+          status: file.status,
+          additions: file.additions,
+          deletions: file.deletions,
+          changedBy: file.changedBy,
+          minutesFromSignal: distMin === null ? null : Math.round(distMin),
+          relevance: Math.round(relevance * 1000) / 1000,
+        };
+      })
+      .sort((a, b) => b.relevance - a.relevance || a.filename.localeCompare(b.filename));
 
     return {
       repositoryId,
       targetSha,
       baseSha: baseSha || (range.length > 0 ? range[range.length - 1].sha : null),
-      files: Array.from(files.values()),
+      signalAt: new Date(signalAt).toISOString(),
+      files: ranked,
     };
   },
 

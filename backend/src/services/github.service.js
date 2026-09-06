@@ -135,6 +135,18 @@ async function getCommitDetail({ owner, name, sha }) {
   }
 }
 
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const MAX_CACHE_ENTRIES = 300;
+const codeCache = new Map();
+
+function cacheCode(key, value) {
+  if (codeCache.size >= MAX_CACHE_ENTRIES) {
+    const oldest = codeCache.keys().next().value;
+    if (oldest) codeCache.delete(oldest);
+  }
+  codeCache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, value });
+}
+
 async function getFileContent({ owner, name, path, ref }) {
   if (!githubConfigured()) {
     throw new HttpError('GitHub is not configured (GITHUB_TOKEN missing)', {
@@ -145,6 +157,12 @@ async function getFileContent({ owner, name, path, ref }) {
 
   if (!path) {
     throw new HttpError('File path is required', { statusCode: 400, code: 'GITHUB_INVALID_PATH' });
+  }
+
+  const cacheKey = `${owner}/${name}/${String(path).replace(/\\/g, '/')}@${ref || ''}`;
+  const hit = codeCache.get(cacheKey);
+  if (hit && hit.expiresAt > Date.now()) {
+    return { ...hit.value, cached: true };
   }
 
   try {
@@ -164,7 +182,7 @@ async function getFileContent({ owner, name, path, ref }) {
       content = null;
     }
 
-    return {
+    const value = {
       path: data.path,
       type: data.type || 'file',
       sha: data.sha,
@@ -172,7 +190,10 @@ async function getFileContent({ owner, name, path, ref }) {
       url: data.html_url || null,
       content,
       truncated: content === null || (content && content.length > 20000),
+      cached: false,
     };
+    cacheCode(cacheKey, value);
+    return value;
   } catch (err) {
     throw toHttpError(err, 404, 'GITHUB_FETCH_FILE_FAILED');
   }

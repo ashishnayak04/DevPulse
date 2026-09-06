@@ -202,10 +202,10 @@ Legend: `[ ]` not started · `[-]` in progress · `[x]` completed · `[!]` block
 - [x] AI cost controls: dedupe by incident, cap tool calls, timeouts + max token budgets; re-run replaces stale report rows
 
 ### Phase 5 — Code Intelligence
-- [ ] Relevant-file identification (changed files in window + failure-signal proximity)
-- [ ] Code context retrieval (fetch file content from GitHub, cached)
-- [ ] Git diff analysis (what the diff touched vs. what failed)
-- [ ] Code-aware investigation (agent can inspect candidate source files before concluding)
+- [x] Relevant-file identification (changed files in window + failure-signal proximity; `get_changed_files` ranks by minutesFromSignal + endpoint-token boost)
+- [x] Code context retrieval (fetch file content from GitHub, cached — 5m TTL in-memory on `getFileContent`, `cached` flag returned)
+- [x] Git diff analysis (what the diff touched vs. what failed; `get_git_diff` + linked deployments)
+- [x] Code-aware investigation (agent inspects the top-ranked candidate source file before concluding — both LLM and mock mode)
 
 ### Phase 6 — Fix Verification
 - [ ] Prisma models: `FixSuggestion`, `FixVerification`
@@ -392,6 +392,8 @@ VERIFY_FAILURE_DROP_RATIO=0.3          # min relative improvement to call PASS
 | Existing 1.0 smoke test (`backend/scripts/smoke-test.js`) | Passing — 27/27 (incl. Redis-gated investigation flow: trigger, 409 dedupe, list, terminal state, 404) |
 | Phase 2 smoke coverage (git + deployments, Redis-gated) | Passing — 50/50 total |
 | Phase 3 smoke coverage (timeline + similar, Redis-gated) | Passing — 64/64 total |
+| Phase 4 smoke coverage (AI investigator, Redis-gated) | Passing — 82/82 total |
+| Phase 5 smoke coverage (code intelligence, Redis-gated) | Passing — 84/84 total |
 | Unit tests | Not started |
 | Integration tests | Not started |
 | AI investigation tests | Not started |
@@ -434,19 +436,20 @@ VERIFY_FAILURE_DROP_RATIO=0.3          # min relative improvement to call PASS
 | 2026-09-05 | Phase 1 shipped: Prisma `Investigation`/`InvestigationEvidence`/`InvestigationToolCall` + migration `20260905000000_add_investigation_models`; `investigationQueue` + `investigation.worker.js` (stub fails investigation until Phase 4); `ai.service.js`; `modules/investigations` REST (list/detail/trigger/rerun, ownership-scoped, 409 dedupe); wired in `app.js`/`server.js`; auto-trigger on incident DOWN in `ping.worker.js` (additive); `ai-service/` FastAPI scaffold with token-gated `/health` + Pydantic schemas; AI + GitHub env vars in `.env.example`/`config/env.js`; smoke test 27/27 PASS; frontend build PASS; worker hardened for stale jobs (deleted-incident). |
 | 2026-09-06 | Phase 3 shipped: `Alert.incidentId?` nullable FK (migration `20260906000010_add_alert_incident_link`); alert worker links DOWN/UP alerts to incidents; incident module gains `GET /api/incidents/:id/timeline` (chronological events from PingLog/Alert/IncidentUpdate/Deployment + failure clustering + deployment correlation) and `GET /api/incidents/:id/similar` (PostgreSQL full-text over investigation summaries/root causes, endpoint-similarity + text-relevance ordering, ownership-scoped); smoke test 64/64 PASS. |
 | 2026-09-06 | Phase 4 shipped (AI Investigator): token-gated `/api/internal/ai-context` module with 12 agent tool resolvers (incident, ping logs, alerts, timeline, deployment, git commit/diff/changed-files, source-file inspect, similar-incident search, historical resolution, recent investigations) all ownership-scoped by the incident's endpoint user; `Post /investigate` in `ai-service` runs a tool-calling agent (OpenAI-compatible chat completions with tools) with a deterministic mock chain-of-thought fallback when no `AI_API_KEY` is set — both real-effecting the same internal tools so evidence + tool audits are realistic; `backend/src/schemas/ai-result.schema.js` Zod contract; `investigation.worker.js` now validates + persists `Investigation` (summary, rootCause, confidence, affectedServices, related commit/deployment, changedFiles, suggestedFix, risk, verificationPlan) + `InvestigationEvidence` + `InvestigationToolCall` rows and emits `investigation:*` socket events; re-run replaces stale report rows; cost guardrails (max tool calls, token budget, timeouts, 402 budget error, 409 dedupe); similarity search switched to OR-conjoined `to_tsquery` so text relevance stays non-zero against rich AI summaries; fixed a BullMQ re-add no-op that silently prevented re-running a completed investigation; smoke test 82/82 PASS (spawns ai-service in mock mode end-to-end). |
+| 2026-09-06 | Phase 5 shipped (Code Intelligence): `get_changed_files` ranks changed files by failure-signal proximity (minutes from first failure, endpoint-token boost, `relevance` 0..1, `signalAt`) so the agent targets the file most likely implicated; `getFileContent` (backing `inspect_source_file`) gained a 5-minute in-memory TTL cache with a `cached` flag (capped size, only successful fetches); mock-mode agent now calls `get_changed_files` and inspects the top-ranked candidate source file (`inspect_source_file`) before concluding, adding a `source` evidence item and real tool-audit entries (gracefully degraded when `GITHUB_TOKEN` is unset); smoke test 84/84 PASS. |
 
 ---
 
 ## Current Task
 
-Phase 2 complete. Note: WSL2 Redis localhost-forwarding is unreliable on this box (corp VPN/firewall) — use the Docker `devpulse-redis` container on `127.0.0.1:6379` (WSL `redis-server` stopped + disabled). Phase 3 (Incident Intelligence): timeline builder, event clustering + deployment correlation, historical incident search — shipped inline in the incident module (`GET /api/incidents/:id/timeline`, `GET /api/incidents/:id/similar`); consumed on-demand by the Phase 4 agent rather than a dedicated `incident:similarity` queue. Phase 4 (AI Investigator) shipped: tool-calling agent in `ai-service` (`POST /investigate`, token-gated), 12 internal AI-context tools on the Node API, Zod validation, evidence + tool-call persistence, socket events, cost controls, mock mode for keyless dev boxes; smoke test 82/82 PASS.
+Phase 5 (Code Intelligence) shipped: `get_changed_files` ranks changed files by failure-signal proximity (`relevance`, `minutesFromSignal`, `signalAt`); `inspect_source_file` reads source via a 5-min TTL-cached `getFileContent` (`cached` flag); git diff analysis + linked deployments via `get_git_diff`; the agent now inspects the top-ranked candidate source file before concluding (mock mode included) — degraded gracefully on keyless boxes. Smoke test 84/84 PASS. Note: WSL2 Redis localhost-forwarding is unreliable on this box (corp VPN/firewall) — use the Docker `devpulse-redis` container on `127.0.0.1:6379` (WSL `redis-server` stopped + disabled).
 
 ## Next Task
 
-Phase 5 — Code Intelligence (repository-level blame/anomaly detection, per-file change attribution, deployment-aware changelog diffing) or Phase 8 investigation UI if a visible surface is wanted first.
+Phase 6 — Fix Verification (Prisma `FixSuggestion`/`FixVerification` models, deployment detection after investigation, before/after comparison of failure count/uptime/latency/P95/recurrence, PASS/FAILED/INCONCLUSIVE engine, `incident:verify` queue + worker), or Phase 8 investigation UI if a visible surface is wanted first.
 
 ---
 
 ## Last Updated
 
-2026-09-05
+2026-09-06
