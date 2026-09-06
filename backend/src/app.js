@@ -25,6 +25,8 @@ const adminRoutes = require('./modules/admin/admin.routes');
 const webhookRoutes = require('./modules/webhooks/webhook.routes');
 const incidentRoutes = require('./modules/incidents/incident.routes');
 const investigationRoutes = require('./modules/investigations/investigation.routes');
+const githubRoutes = require('./modules/github/github.routes');
+const deploymentRoutes = require('./modules/deployments/deployment.routes');
 const statusPageRoutes = require('./modules/statuspage/statuspage.routes');
 const apiKeyRoutes = require('./modules/apikeys/apikey.routes');
 const teamRoutes = require('./modules/teams/team.routes');
@@ -44,6 +46,9 @@ function createApp() {
   app.use(cors({ origin: config.frontendUrl, credentials: true }));
   app.use(morgan('dev'));
   app.use(cookieParser());
+  // GitHub webhooks must see the raw body (Buffer) for HMAC signature verification.
+  // Registered before express.json so it wins on the /api/github/hooks path only.
+  app.use('/api/github/hooks', express.raw({ type: () => true, limit: '1mb' }));
   app.use(express.json());
   app.use(passport.initialize());
 
@@ -68,6 +73,8 @@ function createApp() {
   app.use('/api/statuspage', statusPageRoutes);
   app.use('/api/incidents', incidentRoutes);
   app.use('/api/investigations', investigationRoutes);
+  app.use('/api/github', githubRoutes);
+  app.use('/api/deployments', deploymentRoutes);
   app.use('/api/keys', apiKeyRoutes);
   app.use('/api/teams', teamRoutes);
   app.use('/api/notifications', notificationRoutes);

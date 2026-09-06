@@ -86,6 +86,8 @@ model User {
   teamMemberships    TeamMember[]
   maintenanceWindows MaintenanceWindow[]
   statusSubscribers  StatusSubscriber[]
+  gitRepositories    GitRepository[]
+  deployments        Deployment[]
 
   @@index([email])
   @@index([username])
@@ -465,4 +467,95 @@ model InvestigationToolCall {
   investigation Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
 
   @@index([investigationId])
+}
+
+// ─── DevPulse 2.0: Git Intelligence ────────────────────────
+
+model GitRepository {
+  id            String   @id @default(uuid())
+  userId        String
+  name          String
+  owner         String
+  fullName      String
+  defaultBranch String   @default("main")
+  url           String
+  description   String?
+  status        String   @default("active") // active | syncing | error
+  lastError     String?
+  installedAt   DateTime @default(now())
+  lastSyncedAt  DateTime?
+
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  commits     GitCommit[]
+  deployments Deployment[]
+
+  @@unique([userId, fullName])
+  @@index([userId])
+  @@index([owner, name])
+}
+
+model GitCommit {
+  id           String   @id @default(uuid())
+  repositoryId String
+  sha          String
+  message      String
+  author       String
+  authorEmail  String?
+  authorDate   DateTime?
+  url          String?
+
+  repository  GitRepository       @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  fileChanges GitFileChange[]
+  deploymentLinks DeploymentCommit[]
+
+  @@unique([repositoryId, sha])
+  @@index([repositoryId])
+  @@index([authorDate])
+}
+
+model GitFileChange {
+  id        String  @id @default(uuid())
+  commitId  String
+  filename  String
+  status    String  @default("modified") // added | modified | removed | renamed
+  additions Int     @default(0)
+  deletions Int     @default(0)
+  patch     String?
+
+  commit GitCommit @relation(fields: [commitId], references: [id], onDelete: Cascade)
+
+  @@index([commitId])
+}
+
+model Deployment {
+  id           String   @id @default(uuid())
+  userId       String
+  repositoryId String?
+  environment  String   @default("production")
+  commitSha    String?
+  status       String   @default("completed") // pending | in_progress | completed | failed
+  source       String   @default("api") // api | github_actions | hook
+  description  String?
+  deployedAt   DateTime @default(now())
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repository GitRepository?     @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+  commits    DeploymentCommit[]
+
+  @@index([userId])
+  @@index([repositoryId])
+  @@index([deployedAt])
+}
+
+model DeploymentCommit {
+  deploymentId String
+  commitId     String
+
+  deployment Deployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+  commit     GitCommit  @relation(fields: [commitId], references: [id], onDelete: Cascade)
+
+  @@id([deploymentId, commitId])
+  @@index([commitId])
 }

@@ -7,6 +7,7 @@ const logger = require('../lib/logger');
 const constants = require('../constants');
 const { alertQueue } = require('../queues/alert.queue');
 const { enqueueInvestigation } = require('../queues/investigation.queue');
+const { enqueueGitSync } = require('../queues/git.queue');
 const { invalidateStatusCache } = require('../modules/status/status.service');
 const { isMonitoringEnabled } = require('../lib/platform-settings');
 
@@ -150,6 +151,29 @@ async function openIncident(endpointId, userId) {
   }
 }
 
+async function enqueueGitSyncForUser(userId) {
+  if (!userId) return;
+  try {
+    const repos = await prisma.gitRepository.findMany({
+      where: { userId, status: 'active' },
+      select: { id: true, userId: true, fullName: true },
+    });
+    for (const repo of repos) {
+      enqueueGitSync({
+        repositoryId: repo.id,
+        userId: repo.userId,
+        fullName: repo.fullName,
+        reason: 'incident',
+      }).catch((err) => logger.error(SCOPE, `Failed to enqueue git sync for ${repo.fullName}: ${err.message}`));
+    }
+    if (repos.length > 0) {
+      logger.info(SCOPE, `Queued git sync for ${repos.length} repo(s) after incident open (user ${userId})`);
+    }
+  } catch (err) {
+    logger.error(SCOPE, `Failed to enqueue git sync for user ${userId}: ${err.message}`);
+  }
+}
+
 async function resolveOpenIncident(endpointId, userId) {
   try {
     const openIncidentRow = await prisma.incident.findFirst({
@@ -251,6 +275,7 @@ function initPingWorker(io) {
             enqueueInvestigation({ incidentId: incident.id, endpointId, userId }).catch((err) =>
               logger.error(SCOPE, `Failed to enqueue investigation for incident ${incident.id}: ${err.message}`)
             );
+            enqueueGitSyncForUser(userId);
           }
         }
 

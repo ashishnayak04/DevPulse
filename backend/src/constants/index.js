@@ -20,18 +20,21 @@ module.exports = {
     FREE: {
       maxEndpoints: 5,
       maxWebhooks: 1,
+      maxRepositories: 1,
       minIntervalMs: 60000,
       retentionDays: 14,
     },
     PRO: {
       maxEndpoints: 25,
       maxWebhooks: 5,
+      maxRepositories: 5,
       minIntervalMs: 10000,
       retentionDays: 45,
     },
     BUSINESS: {
       maxEndpoints: 100,
       maxWebhooks: 20,
+      maxRepositories: 25,
       minIntervalMs: 10000,
       retentionDays: 90,
     },
@@ -61,5 +64,10 @@ module.exports = {
   pagination: {
     defaultLimit: 50,
     maxLimit: 200,
+  },
+
+  gitSync: {
+    cronExpression: process.env.GIT_SYNC_CRON || '*/15 * * * *',
+    onIncidentReason: 'incident',
   },
 };

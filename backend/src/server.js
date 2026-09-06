@@ -7,8 +7,10 @@ const { createSocketServer } = require('./socket');
 const { initPingWorker, getPingWorker } = require('./workers/ping.worker');
 const { initAlertWorker, getAlertWorker } = require('./workers/alert.worker');
 const { initInvestigationWorker, getInvestigationWorker } = require('./workers/investigation.worker');
+const { initGitWorker, getGitWorker } = require('./workers/git.worker');
 const { scheduleAllActive } = require('./queues/ping.queue');
 const { startRetentionJob } = require('./jobs/retention.job');
+const { startGitSyncJob } = require('./jobs/git-sync.job');
 
 const SCOPE = 'Server';
 
@@ -24,9 +26,11 @@ async function start() {
     app.set('io', io);
 
     startRetentionJob();
+    startGitSyncJob();
     initPingWorker(io);
     initAlertWorker();
     initInvestigationWorker();
+    initGitWorker(io);
     await scheduleAllActive(prisma);
 
     server.listen(config.port, () => {
@@ -47,9 +51,11 @@ async function start() {
       const pingW = getPingWorker();
       const alertW = getAlertWorker();
       const investigationW = getInvestigationWorker();
+      const gitW = getGitWorker();
       if (pingW) await pingW.close();
       if (alertW) await alertW.close();
       if (investigationW) await investigationW.close();
+      if (gitW) await gitW.close();
       await prisma.$disconnect();
       process.exit(0);
     } catch (err) {

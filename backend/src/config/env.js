@@ -42,6 +42,14 @@ const config = {
     temperature: parseFloat(process.env.AI_TEMPERATURE || 0.2),
   },
 
+  github: {
+    token: process.env.GITHUB_TOKEN,
+    hookSecret: process.env.GITHUB_HOOK_SECRET,
+    perPage: toInt(process.env.GITHUB_PER_PAGE, 50),
+    maxCommitFetch: toInt(process.env.GITHUB_MAX_COMMIT_FETCH, 50),
+    filePatch: process.env.GITHUB_FETCH_PATCH !== 'false',
+  },
+
   clientBuildPath: require('path').join(__dirname, '..', '..', '..', 'frontend', 'dist'),
 };
 
