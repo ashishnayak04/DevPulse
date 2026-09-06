@@ -2,11 +2,19 @@ const { Worker } = require('bullmq');
 const redis = require('../lib/redis');
 const prisma = require('../lib/prisma');
 const logger = require('../lib/logger');
-const { aiConfigured, checkAiHealth } = require('../services/ai.service');
+const {
+  aiConfigured,
+  checkAiHealth,
+  runInvestigation,
+  InvestigationBudgetError,
+} = require('../services/ai.service');
+const { aiResultSchema } = require('../schemas/ai-result.schema');
+const { ZodError } = require('zod');
 
 const SCOPE = 'InvestigationWorker';
 
 let investigationWorker = null;
+let socketIo = null;
 
 async function findOrCreateInvestigation({ incidentId, endpointId, userId }) {
   if (incidentId) {
@@ -38,10 +46,82 @@ async function findOrCreateInvestigation({ incidentId, endpointId, userId }) {
   });
 }
 
-async function failInvestigation(investigation, message) {
-  await prisma.investigation.update({
+async function setStatus(investigation, data) {
+  return prisma.investigation.update({
     where: { id: investigation.id },
-    data: { status: 'FAILED', error: message, completedAt: new Date() },
+    data,
+  });
+}
+
+function emitSocket(userId, event, payload) {
+  if (socketIo && userId) {
+    socketIo.to(`user:${userId}`).emit(event, payload);
+  }
+}
+
+async function failInvestigation(investigation, message, userId) {
+  await setStatus(investigation, { status: 'FAILED', error: message, completedAt: new Date() });
+  logger.error(SCOPE, `Investigation ${investigation.id} failed — ${message}`);
+  emitSocket(userId, 'investigation:failed', {
+    id: investigation.id,
+    incidentId: investigation.incidentId,
+    status: 'FAILED',
+    error: message,
+  });
+}
+
+async function persistInvestigationResult(investigation, result) {
+  await prisma.$transaction(async (tx) => {
+    await tx.investigation.update({
+      where: { id: investigation.id },
+      data: {
+        status: 'COMPLETED',
+        summary: result.summary,
+        rootCause: result.rootCause,
+        confidence: result.confidence,
+        affectedServices: result.affectedServices.length ? result.affectedServices : null,
+        relatedDeploymentId: result.relatedDeployment ?? null,
+        relatedCommitId: result.relatedCommit ?? null,
+        changedFiles: result.changedFiles.length ? result.changedFiles : null,
+        suggestedFix: result.suggestedFix ?? null,
+        risk: result.risk ?? null,
+        verificationPlan: result.verificationPlan ?? null,
+        error: null,
+        completedAt: new Date(),
+      },
+    });
+
+    // A re-run replaces the previous report (evidence + tool audit).
+    await tx.investigationEvidence.deleteMany({ where: { investigationId: investigation.id } });
+    await tx.investigationToolCall.deleteMany({ where: { investigationId: investigation.id } });
+
+    if (result.evidence.length > 0) {
+      await tx.investigationEvidence.createMany({
+        data: result.evidence.map((e) => ({
+          investigationId: investigation.id,
+          sourceType: e.sourceType,
+          sourceKey: e.sourceKey,
+          title: e.title,
+          detail: e.detail ?? null,
+          classification: e.classification,
+          sourceUrl: e.sourceUrl ?? null,
+          payload: e.payload ?? null,
+        })),
+      });
+    }
+
+    if (result.toolCalls.length > 0) {
+      await tx.investigationToolCall.createMany({
+        data: result.toolCalls.map((t) => ({
+          investigationId: investigation.id,
+          toolName: t.toolName,
+          arguments: t.arguments ?? {},
+          result: t.result ?? null,
+          status: t.status ?? 'success',
+          durationMs: t.durationMs ?? null,
+        })),
+      });
+    }
   });
 }
 
@@ -54,33 +134,62 @@ async function handleInvestigationJob(job) {
     return;
   }
 
-  await prisma.investigation.update({
-    where: { id: investigation.id },
-    data: { status: 'RUNNING', startedAt: new Date(), error: null },
-  });
+  await setStatus(investigation, { status: 'RUNNING', startedAt: new Date(), error: null });
   logger.info(SCOPE, `Investigation ${investigation.id} started (incident ${investigation.incidentId})`);
+  emitSocket(userId, 'investigation:started', {
+    id: investigation.id,
+    incidentId: investigation.incidentId,
+    status: 'RUNNING',
+  });
 
   if (!aiConfigured()) {
     const message = 'AI service not configured (AI_SERVICE_URL / AI_SERVICE_TOKEN required)';
-    logger.error(SCOPE, message);
-    await failInvestigation(investigation, message);
+    await failInvestigation(investigation, message, userId);
     return;
   }
 
   const health = await checkAiHealth();
   if (!health.available) {
     const message = `AI service unreachable: ${health.reason || 'unknown error'}`;
-    logger.error(SCOPE, `Investigation ${investigation.id} failed — ${message}`);
-    await failInvestigation(investigation, message);
+    await failInvestigation(investigation, message, userId);
     return;
   }
 
-  const message = 'AI investigation engine not implemented yet (DevPulse 2.0 Phase 4)';
-  logger.warn(SCOPE, `Investigation ${investigation.id} reached AI service but ${message}`);
-  await failInvestigation(investigation, message);
+  try {
+    const raw = await runInvestigation({ incidentId, endpointId });
+    const result = aiResultSchema.parse(raw);
+    await persistInvestigationResult(investigation, result);
+    logger.info(SCOPE, `Investigation ${investigation.id} completed in ${result.toolCalls.length} tool calls`);
+    emitSocket(userId, 'investigation:completed', {
+      id: investigation.id,
+      incidentId: investigation.incidentId,
+      status: 'COMPLETED',
+      summary: result.summary,
+      rootCause: result.rootCause,
+      confidence: result.confidence,
+      risk: result.risk,
+    });
+  } catch (err) {
+    if (err instanceof InvestigationBudgetError) {
+      const message = `Investigation halted: ${err.message}`;
+      await failInvestigation(investigation, message, userId);
+      return;
+    }
+    if (err instanceof ZodError) {
+      const message = `AI service returned a malformed investigation: ${err.errors
+        .slice(0, 3)
+        .map((e) => e.message)
+        .join('; ')}`;
+      await failInvestigation(investigation, message, userId);
+      return;
+    }
+    await failInvestigation(investigation, err.message || 'Unknown investigation error', userId);
+  }
 }
 
-function initInvestigationWorker() {
+function initInvestigationWorker(io) {
+  socketIo = io || null;
+
   const worker = new Worker('investigationQueue', handleInvestigationJob, {
     connection: redis,
     concurrency: 2,

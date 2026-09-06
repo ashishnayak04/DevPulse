@@ -177,7 +177,7 @@ Legend: `[ ]` not started · `[-]` in progress · `[x]` completed · `[!]` block
 - [x] BullMQ queue `incident:investigate` + worker
 - [x] `GET/POST /api/investigations` REST surface + ownership scoping
 - [x] AI configuration via env (provider, model, base URL, token; presence checked at worker startup, not app boot)
-- [-] Structured investigation output schema (Pydantic done in `ai-service/app/schemas.py`; Zod side lands with Phase 4 AI engine) + validation
+- [-] Structured investigation output schema (Pydantic done in `ai-service/app/schemas.py`; Zod side landed with Phase 4 AI engine) + validation
 
 ### Phase 2 — Git Intelligence
 - [x] Prisma models: `GitRepository`, `GitCommit`, `GitFileChange`, `Deployment`, `DeploymentCommit`
@@ -188,18 +188,18 @@ Legend: `[ ]` not started · `[-]` in progress · `[x]` completed · `[!]` block
 
 ### Phase 3 — Incident Intelligence
 - [x] Incident timeline builder (PingLog + Alert + Incident + Deployment events, chronological)
-- [-] Event correlation (clustering + deployment correlation computed inline in the timeline builder; dedicated `incident:similarity` queue deferred until a consumer (Phase 4 AI) exists)
+- [x] Event correlation (clustering + deployment correlation computed inline in the timeline builder; consumed on-demand by the Phase 4 agent rather than a precompute `incident:similarity` queue)
 - [x] Deployment correlation (which deployment precedes the first failure?)
 - [x] Historical incident search (PostgreSQL: text search across summaries/root causes, ordered by time window + endpoint similarity first)
 
 ### Phase 4 — AI Investigator
-- [ ] Investigation engine in AI service (tool-calling agent)
-- [ ] AI tools: `getIncident`, `getIncidentEvents`, `getPingLogs`, `getAlerts`, `getTimeline`, `getDeployment`, `getGitCommit`, `getGitDiff`, `getChangedFiles`, `inspectSourceFile`, `searchSimilarIncidents`, `getHistoricalResolution`
-- [ ] Evidence collection (FACT/INFERENCE/HYPOTHESIS provenance)
-- [ ] Root-cause analysis + confidence scoring
-- [ ] Suggested fixes + risk + verification plan
-- [ ] Tool-call auditing (every tool call persisted as `InvestigationToolCall`)
-- [ ] AI cost controls: dedupe by incident, cap tool calls, small models for simple tasks, timeouts + max token budgets
+- [x] Investigation engine in AI service (tool-calling agent; deterministic mock chain-of-thought fallback when no LLM key is configured)
+- [x] AI tools: `get_incident`, `get_timeline`, `get_ping_logs`, `get_alerts`, `get_deployment`, `get_git_commit`, `get_git_diff`, `get_changed_files`, `inspect_source_file`, `search_similar_incidents`, `get_historical_resolution`, `list_recent_investigations`
+- [x] Evidence collection (FACT/INFERENCE/HYPOTHESIS provenance)
+- [x] Root-cause analysis + confidence scoring
+- [x] Suggested fixes + risk + verification plan
+- [x] Tool-call auditing (every tool call persisted as `InvestigationToolCall`)
+- [x] AI cost controls: dedupe by incident, cap tool calls, timeouts + max token budgets; re-run replaces stale report rows
 
 ### Phase 5 — Code Intelligence
 - [ ] Relevant-file identification (changed files in window + failure-signal proximity)
@@ -433,16 +433,17 @@ VERIFY_FAILURE_DROP_RATIO=0.3          # min relative improvement to call PASS
 | 2026-09-05 | Phase 0 complete. Codebase analyzed; `DEVPULSE_2_ROADMAP.md` created. No production code modified. |
 | 2026-09-05 | Phase 1 shipped: Prisma `Investigation`/`InvestigationEvidence`/`InvestigationToolCall` + migration `20260905000000_add_investigation_models`; `investigationQueue` + `investigation.worker.js` (stub fails investigation until Phase 4); `ai.service.js`; `modules/investigations` REST (list/detail/trigger/rerun, ownership-scoped, 409 dedupe); wired in `app.js`/`server.js`; auto-trigger on incident DOWN in `ping.worker.js` (additive); `ai-service/` FastAPI scaffold with token-gated `/health` + Pydantic schemas; AI + GitHub env vars in `.env.example`/`config/env.js`; smoke test 27/27 PASS; frontend build PASS; worker hardened for stale jobs (deleted-incident). |
 | 2026-09-06 | Phase 3 shipped: `Alert.incidentId?` nullable FK (migration `20260906000010_add_alert_incident_link`); alert worker links DOWN/UP alerts to incidents; incident module gains `GET /api/incidents/:id/timeline` (chronological events from PingLog/Alert/IncidentUpdate/Deployment + failure clustering + deployment correlation) and `GET /api/incidents/:id/similar` (PostgreSQL full-text over investigation summaries/root causes, endpoint-similarity + text-relevance ordering, ownership-scoped); smoke test 64/64 PASS. |
+| 2026-09-06 | Phase 4 shipped (AI Investigator): token-gated `/api/internal/ai-context` module with 12 agent tool resolvers (incident, ping logs, alerts, timeline, deployment, git commit/diff/changed-files, source-file inspect, similar-incident search, historical resolution, recent investigations) all ownership-scoped by the incident's endpoint user; `Post /investigate` in `ai-service` runs a tool-calling agent (OpenAI-compatible chat completions with tools) with a deterministic mock chain-of-thought fallback when no `AI_API_KEY` is set — both real-effecting the same internal tools so evidence + tool audits are realistic; `backend/src/schemas/ai-result.schema.js` Zod contract; `investigation.worker.js` now validates + persists `Investigation` (summary, rootCause, confidence, affectedServices, related commit/deployment, changedFiles, suggestedFix, risk, verificationPlan) + `InvestigationEvidence` + `InvestigationToolCall` rows and emits `investigation:*` socket events; re-run replaces stale report rows; cost guardrails (max tool calls, token budget, timeouts, 402 budget error, 409 dedupe); similarity search switched to OR-conjoined `to_tsquery` so text relevance stays non-zero against rich AI summaries; fixed a BullMQ re-add no-op that silently prevented re-running a completed investigation; smoke test 82/82 PASS (spawns ai-service in mock mode end-to-end). |
 
 ---
 
 ## Current Task
 
-Phase 2 complete. Note: WSL2 Redis localhost-forwarding is unreliable on this box (corp VPN/firewall) — use the Docker `devpulse-redis` container on `127.0.0.1:6379` (WSL `redis-server` stopped + disabled). Phase 3 (Incident Intelligence): timeline builder, event clustering + deployment correlation, historical incident search — shipped inline in the incident module (`GET /api/incidents/:id/timeline`, `GET /api/incidents/:id/similar`); `Alert.incidentId?` link added. A dedicated `incident:similarity` queue is deferred until Phase 4 consumes it.
+Phase 2 complete. Note: WSL2 Redis localhost-forwarding is unreliable on this box (corp VPN/firewall) — use the Docker `devpulse-redis` container on `127.0.0.1:6379` (WSL `redis-server` stopped + disabled). Phase 3 (Incident Intelligence): timeline builder, event clustering + deployment correlation, historical incident search — shipped inline in the incident module (`GET /api/incidents/:id/timeline`, `GET /api/incidents/:id/similar`); consumed on-demand by the Phase 4 agent rather than a dedicated `incident:similarity` queue. Phase 4 (AI Investigator) shipped: tool-calling agent in `ai-service` (`POST /investigate`, token-gated), 12 internal AI-context tools on the Node API, Zod validation, evidence + tool-call persistence, socket events, cost controls, mock mode for keyless dev boxes; smoke test 82/82 PASS.
 
 ## Next Task
 
-Phase 4 — AI Investigator (investigation engine in the FastAPI service, tool-calling agent wired to the Node API, evidence collection, cost guardrails), or Phase 8 investigation UI if a visible surface is wanted first.
+Phase 5 — Code Intelligence (repository-level blame/anomaly detection, per-file change attribution, deployment-aware changelog diffing) or Phase 8 investigation UI if a visible surface is wanted first.
 
 ---
 

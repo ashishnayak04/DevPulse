@@ -223,6 +223,10 @@ async function getTimeline(incidentId, user) {
     throw new HttpError('Incident not found', { statusCode: 404, code: 'NOT_FOUND' });
   }
 
+  return buildTimelineForIncident(incident);
+}
+
+async function buildTimelineForIncident(incident) {
   const { intelligence } = constants;
   const startedAt = incident.startedAt;
   const endedAt = incident.resolvedAt || new Date();
@@ -333,7 +337,7 @@ async function getTimeline(incidentId, user) {
   events.sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime());
 
   const investigation = await prisma.investigation.findUnique({
-    where: { incidentId },
+    where: { incidentId: incident.id },
     select: { id: true, status: true, summary: true },
   });
 
@@ -377,6 +381,15 @@ async function getSimilarIncidents(incidentId, user, rawQuery) {
     constants.intelligence.similarMaxLimit
   );
 
+  return findSimilarForIncident(incident, {
+    limit,
+    ownerUserId: user.role === 'ADMIN' ? null : user.id,
+  });
+}
+
+async function findSimilarForIncident(incident, { limit, ownerUserId }) {
+  const incidentId = incident.id;
+
   const baseInvestigation = await prisma.investigation.findUnique({
     where: { incidentId },
     select: { summary: true, rootCause: true },
@@ -386,7 +399,17 @@ async function getSimilarIncidents(incidentId, user, rawQuery) {
     `${baseInvestigation?.summary || ''} ${baseInvestigation?.rootCause || ''} ${incident.endpoint.name}`
   );
   const userClause =
-    user.role === 'ADMIN' ? Prisma.sql`TRUE` : Prisma.sql`e."userId" = ${user.id}`;
+    ownerUserId === null ? Prisma.sql`TRUE` : Prisma.sql`e."userId" = ${ownerUserId}`;
+
+  // OR-conjoin the search terms: plainto_tsquery AND-conjoins every word, and a
+  // rich AI summary quickly yields a query no single candidate can satisfy
+  // (score 0 for everything). OR keeps relevance meaningful and the endpoint
+  // match still dominates the ordering as the first sort key.
+  const terms = searchTerm ? searchTerm.split(/\s+/).filter(Boolean) : [];
+  const tsExpr =
+    terms.length > 0
+      ? Prisma.sql`to_tsquery('english', ${terms.join(' | ')})`
+      : Prisma.sql`to_tsquery('english', '')`;
 
   const rows = await prisma.$queryRaw`
     SELECT i.id,
@@ -398,7 +421,7 @@ async function getSimilarIncidents(incidentId, user, rawQuery) {
            inv."rootCause",
            ts_rank_cd(
              to_tsvector('english', coalesce(inv.summary, '') || ' ' || coalesce(inv."rootCause", '') || ' ' || e.name),
-             plainto_tsquery('english', ${searchTerm})
+             ${tsExpr}
            )::float AS score
     FROM "Incident" i
     JOIN "Endpoint" e ON e.id = i."endpointId"
@@ -441,4 +464,6 @@ module.exports = {
   acknowledgeIncident,
   getTimeline,
   getSimilarIncidents,
+  buildTimelineForIncident,
+  findSimilarForIncident,
 };

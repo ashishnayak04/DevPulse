@@ -33,6 +33,7 @@ const teamRoutes = require('./modules/teams/team.routes');
 const teamStatusRoutes = require('./modules/teams/team-status.routes');
 const notificationRoutes = require('./modules/notifications/notification.routes');
 const announcementRoutes = require('./modules/admin/announcement.routes');
+const internalRoutes = require('./modules/internal/internal.routes');
 
 function createApp() {
   const app = express();
@@ -76,6 +77,7 @@ function createApp() {
   app.use('/api/github', githubRoutes);
   app.use('/api/deployments', deploymentRoutes);
   app.use('/api/keys', apiKeyRoutes);
+  app.use('/api/internal', internalRoutes);
   app.use('/api/teams', teamRoutes);
   app.use('/api/notifications', notificationRoutes);
   app.use('/api/announcement', announcementRoutes);

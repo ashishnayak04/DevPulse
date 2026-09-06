@@ -1,16 +1,25 @@
 const http = require('http');
+const path = require('path');
+const { spawn } = require('child_process');
 const constants = require('../src/constants');
 constants.rateLimit.authMaxRequestsPerMinute = 10000;
 constants.rateLimit.globalMaxRequestsPerMinute = 10000;
+
+// Phase 4: point the in-process API at a freshly spawned ai-service (mock mode)
+// and share the service token with the internal /api/internal AI-context module.
+process.env.AI_SERVICE_URL = 'http://127.0.0.1:8001';
+process.env.AI_SERVICE_TOKEN = 'smoke-ai-secret';
+
 const { createApp } = require('../src/app');
 const prisma = require('../src/lib/prisma');
 const { initInvestigationWorker, getInvestigationWorker } = require('../src/workers/investigation.worker');
 const { initGitWorker, getGitWorker } = require('../src/workers/git.worker');
 const { enqueueGitSync } = require('../src/queues/git.queue');
 
-setTimeout(() => { console.log('GLOBAL TIMEOUT'); process.exit(1); }, 90000);
+setTimeout(() => { console.log('GLOBAL TIMEOUT'); process.exit(1); }, 120000);
 
 const PORT = 4599;
+const AI_PORT = 8001;
 let passed = 0;
 let failed = 0;
 
@@ -19,7 +28,7 @@ function check(name, cond, extra = '') {
   else { failed++; console.log(`FAIL ${name} ${extra}`); }
 }
 
-function request(method, path, body, token) {
+function request(method, path, body, token, extraHeaders) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
     const req = http.request(
@@ -27,6 +36,7 @@ function request(method, path, body, token) {
         'Content-Type': 'application/json',
         ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(extraHeaders || {}),
       } },
       (res) => {
         let data = '';
@@ -42,6 +52,46 @@ function request(method, path, body, token) {
     if (payload) req.write(payload);
     req.end();
   });
+}
+
+function rawRequest(port, p, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path: p, method: 'GET', headers }, (res) => {
+      let data = '';
+      res.on('data', (c) => (data += c));
+      res.on('end', () => {
+        let json = null;
+        try { json = JSON.parse(data); } catch {}
+        resolve({ status: res.statusCode, json });
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+function spawnAiService() {
+  const aiPython = path.join(__dirname, '..', '..', 'ai-service', '.venv', 'Scripts', 'python.exe');
+  return spawn(
+    aiPython,
+    ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', String(AI_PORT)],
+    {
+      cwd: path.join(__dirname, '..', '..', 'ai-service'),
+      env: {
+        ...process.env,
+        AI_SERVICE_PORT: String(AI_PORT),
+        AI_SERVICE_TOKEN: process.env.AI_SERVICE_TOKEN,
+        NODE_API_URL: `http://127.0.0.1:${PORT}`,
+        AI_API_KEY: '',
+        AI_BASE_URL: '',
+      },
+      stdio: 'ignore',
+    }
+  );
+}
+
+function aiHeaders(extra = {}) {
+  return { 'X-DevPulse-Token': process.env.AI_SERVICE_TOKEN, ...extra };
 }
 
 async function main() {
@@ -130,6 +180,24 @@ async function main() {
   if (!redisAvailable) {
     console.log('SKIP investigation tests — Redis unavailable');
   } else {
+    // ─── DevPulse 2.0 Phase 4: AI Investigator ───
+    // Spawn the ai-service against this in-process API in deterministic mock mode.
+    const aiService = spawnAiService();
+    let aiReady = false;
+    for (let i = 0; i < 40; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      try {
+        const probe = await rawRequest(AI_PORT, '/health', aiHeaders());
+        if (probe.status === 200) { aiReady = true; break; }
+      } catch {}
+    }
+    check('ai-service spawns and reports mock mode', aiReady, 'ai-service did not become ready in time');
+
+    const aiHealth = aiReady ? await rawRequest(AI_PORT, '/health', aiHeaders()) : null;
+    check('ai-service health shows mock mode', aiReady && aiHealth?.status === 200 && aiHealth?.json?.mode === 'mock' && aiHealth?.json?.llmConfigured === false, JSON.stringify(aiHealth));
+    const aiBadToken = await rawRequest(AI_PORT, '/health', aiHeaders({ 'X-DevPulse-Token': 'wrong-secret' }));
+    check('ai-service rejects bad service token', aiBadToken?.status === 401, JSON.stringify(aiBadToken));
+
     const created = await request('POST', '/api/endpoints', {
       name: 'smoke-investigate',
       url: 'https://example.com',
@@ -241,6 +309,46 @@ async function main() {
     check('similar ownership guard (other user 404)', similarForeign.status === 404, JSON.stringify(similarForeign.json));
 
     await getInvestigationWorker().close();
+
+    // ─── DevPulse 2.0 Phase 4: AI Investigator persistence + tool audit ───
+    // The first trigger above ran against a bare incident. Re-run it now that
+    // Phase 3 seeded ping failures, an alert, a pre-failure deployment and a
+    // similar completed investigation, so the agent has deployment-context to chew on.
+    initInvestigationWorker();
+    const rerun = await request('POST', `/api/investigations/${trigger.json.data.investigation.id}/rerun`, {}, adminToken);
+    check('investigation rerun re-queued', rerun.status === 200 && rerun.json?.data?.investigation?.status === 'QUEUED', JSON.stringify(rerun.json));
+
+    let inv4;
+    for (let i = 0; i < 40; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      const detail = await request('GET', `/api/investigations/${trigger.json.data.investigation.id}`, null, adminToken);
+      inv4 = detail.json?.data?.investigation;
+      if (inv4?.status === 'COMPLETED' || inv4?.status === 'FAILED') break;
+    }
+    check('investigation completes via AI engine', inv4?.status === 'COMPLETED', JSON.stringify({ status: inv4?.status, error: inv4?.error }));
+    check('investigation persisted summary + root cause', typeof inv4?.summary === 'string' && inv4.summary.length > 0 && typeof inv4?.rootCause === 'string' && inv4.rootCause.length > 0, JSON.stringify({ s: inv4?.summary, r: inv4?.rootCause }));
+    check('investigation persisted evidence rows', Array.isArray(inv4?.evidence) && inv4.evidence.length > 0, JSON.stringify(inv4?.evidence?.length));
+    check('investigation persisted tool audit', Array.isArray(inv4?.toolCalls) && inv4.toolCalls.length > 0, JSON.stringify(inv4?.toolCalls?.map((t) => t.toolName)));
+    check('deployment correlation surfaced as inference', inv4?.evidence?.some((e) => e.classification === 'INFERENCE' && e.sourceType === 'correlation'), '');
+    check('deployment linked to investigation result', !!inv4?.relatedDeploymentId, JSON.stringify(inv4?.relatedDeploymentId));
+    check('tool audit includes deployment probe', inv4?.toolCalls?.some((t) => t.toolName === 'get_deployment'), '');
+    check('similar incident surfaced in evidence', inv4?.evidence?.some((e) => e.sourceType === 'similarity'), '');
+    check('investigation confidence within bounds', typeof inv4?.confidence === 'number' && inv4.confidence >= 0 && inv4.confidence <= 1, JSON.stringify(inv4?.confidence));
+
+    // Internal AI-context endpoint: token guard + tool dispatch (agent-facing).
+    const internalNoAuth = await request('POST', '/api/internal/ai-context', { tool: 'get_timeline', arguments: { incidentId: incident.id } });
+    check('internal ai-context rejects missing token', internalNoAuth.status === 401, JSON.stringify(internalNoAuth.json));
+    const internalWrong = await request('POST', '/api/internal/ai-context', { tool: 'get_timeline', arguments: { incidentId: incident.id } }, null, aiHeaders({ 'X-DevPulse-Token': 'wrong-secret' }));
+    check('internal ai-context rejects bad token', internalWrong.status === 401, JSON.stringify(internalWrong.json));
+    const internalUnknown = await request('POST', '/api/internal/ai-context', { tool: 'no_such_tool', arguments: {} }, null, aiHeaders());
+    check('internal ai-context unknown tool 400', internalUnknown.status === 400 && internalUnknown.json?.error?.code === 'UNKNOWN_TOOL', JSON.stringify(internalUnknown.json));
+    const internalTimeline = await request('POST', '/api/internal/ai-context', { tool: 'get_timeline', arguments: { incidentId: incident.id } }, null, aiHeaders());
+    check('internal ai-context timeline tool works', internalTimeline.status === 200 && internalTimeline.json?.data?.incident?.id === incident.id, JSON.stringify(internalTimeline.json));
+    const internalUnknownIncident = await request('POST', '/api/internal/ai-context', { tool: 'get_timeline', arguments: { incidentId: '00000000-0000-0000-0000-000000000001' } }, null, aiHeaders());
+    check('internal ai-context 404 for unknown incident', internalUnknownIncident.status === 404, JSON.stringify(internalUnknownIncident.json));
+
+    await getInvestigationWorker().close();
+    aiService.kill();
 
     // ─── DevPulse 2.0 Phase 2: Git Intelligence + Deployments ───
     // GitHub token is not configured in test env, so connect fails cleanly (real

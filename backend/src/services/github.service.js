@@ -135,6 +135,49 @@ async function getCommitDetail({ owner, name, sha }) {
   }
 }
 
+async function getFileContent({ owner, name, path, ref }) {
+  if (!githubConfigured()) {
+    throw new HttpError('GitHub is not configured (GITHUB_TOKEN missing)', {
+      statusCode: 400,
+      code: 'GITHUB_NOT_CONFIGURED',
+    });
+  }
+
+  if (!path) {
+    throw new HttpError('File path is required', { statusCode: 400, code: 'GITHUB_INVALID_PATH' });
+  }
+
+  try {
+    const { data } = await axios.get(
+      `${GITHUB_API}/repos/${owner}/${name}/contents/${String(path).replace(/^\/+/, '')}`,
+      {
+        headers: githubHeaders(),
+        timeout: 15000,
+        params: ref ? { ref } : {},
+      }
+    );
+
+    let content = null;
+    if (data.content && data.encoding === 'base64') {
+      content = Buffer.from(data.content, 'base64').toString('utf8');
+    } else if (data.type === 'file' && typeof data.content !== 'string') {
+      content = null;
+    }
+
+    return {
+      path: data.path,
+      type: data.type || 'file',
+      sha: data.sha,
+      size: data.size || 0,
+      url: data.html_url || null,
+      content,
+      truncated: content === null || (content && content.length > 20000),
+    };
+  } catch (err) {
+    throw toHttpError(err, 404, 'GITHUB_FETCH_FILE_FAILED');
+  }
+}
+
 async function verifyHookSignature(rawBody, signature) {
   if (!config.github.hookSecret) {
     throw new HttpError('GitHub hook is not configured (GITHUB_HOOK_SECRET missing)', {
@@ -163,5 +206,6 @@ module.exports = {
   validateRepository,
   listRepositoryCommits,
   getCommitDetail,
+  getFileContent,
   verifyHookSignature,
 };

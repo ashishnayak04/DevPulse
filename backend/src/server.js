@@ -29,7 +29,7 @@ async function start() {
     startGitSyncJob();
     initPingWorker(io);
     initAlertWorker();
-    initInvestigationWorker();
+    initInvestigationWorker(io);
     initGitWorker(io);
     await scheduleAllActive(prisma);
 
