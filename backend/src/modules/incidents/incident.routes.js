@@ -10,6 +10,8 @@ router.use(verifyToken);
 
 router.get('/', incidentController.list);
 router.get('/:id', incidentController.get);
+router.get('/:id/timeline', incidentController.timeline);
+router.get('/:id/similar', incidentController.similar);
 router.post('/:id/updates', validate(createIncidentUpdateSchema), incidentController.addUpdate);
 router.patch('/:id/acknowledge', incidentController.acknowledge);
 

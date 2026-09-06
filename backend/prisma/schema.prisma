@@ -192,12 +192,15 @@ model PingLog {
 model Alert {
   id         String    @id @default(uuid())
   endpointId String
+  incidentId String?
   type       AlertType
   sentAt     DateTime  @default(now())
 
-  endpoint Endpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  endpoint Endpoint  @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  incident Incident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
 
   @@index([endpointId])
+  @@index([incidentId])
 }
 
 // ─── Incident ────────────────────────────────────────────
@@ -212,6 +215,7 @@ model Incident {
 
   endpoint Endpoint         @relation(fields: [endpointId], references: [id], onDelete: Cascade)
   updates  IncidentUpdate[]
+  alerts   Alert[]
   investigation Investigation?
 
   @@index([endpointId])

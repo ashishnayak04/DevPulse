@@ -70,4 +70,14 @@ module.exports = {
     cronExpression: process.env.GIT_SYNC_CRON || '*/15 * * * *',
     onIncidentReason: 'incident',
   },
+
+  intelligence: {
+    preRollMinutes: 30,
+    postRollMinutes: 10,
+    sameEndpointMinutes: 60,
+    maxTimelinePings: 2000,
+    maxTimelineDeployments: 50,
+    similarDefaultLimit: 5,
+    similarMaxLimit: 20,
+  },
 };

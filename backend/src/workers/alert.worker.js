@@ -34,6 +34,21 @@ function isDownLike(type) {
   return type === 'DOWN' || type === 'SSL_EXPIRY';
 }
 
+async function findAlertIncident(endpointId, type) {
+  if (isDownLike(type)) {
+    return prisma.incident.findFirst({
+      where: { endpointId, resolvedAt: null },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true },
+    });
+  }
+  return prisma.incident.findFirst({
+    where: { endpointId },
+    orderBy: { startedAt: 'desc' },
+    select: { id: true },
+  });
+}
+
 function getCurrentHourInZone(timeZone) {
   try {
     return Number(new Date().toLocaleString('en-US', { timeZone, hour12: false, hour: 'numeric' })) % 24;
@@ -140,7 +155,15 @@ async function handleAlertJob(job) {
     prefs = FALLBACK_PREFS;
   }
 
-  await prisma.alert.create({ data: { endpointId, type } });
+  const incident = await findAlertIncident(endpointId, type);
+  const alert = await prisma.alert.create({
+    data: { endpointId, type, ...(incident ? { incidentId: incident.id } : {}) },
+    select: { incidentId: true },
+  });
+
+  if (alert.incidentId) {
+    logger.info(SCOPE, `${type} alert linked to incident ${alert.incidentId} (${endpointName})`);
+  }
 
   // ─── Email path (gated by preferences) ────────────────────
   const skipReason = resolveEmailSkipReason(prefs, type);

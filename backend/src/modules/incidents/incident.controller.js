@@ -36,4 +36,22 @@ async function acknowledge(req, res, next) {
   }
 }
 
-module.exports = { list, get, addUpdate, acknowledge };
+async function timeline(req, res, next) {
+  try {
+    const data = await incidentService.getTimeline(req.params.id, req.user);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function similar(req, res, next) {
+  try {
+    const result = await incidentService.getSimilarIncidents(req.params.id, req.user, req.query);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { list, get, addUpdate, acknowledge, timeline, similar };

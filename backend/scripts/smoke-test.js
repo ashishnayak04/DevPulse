@@ -163,6 +163,83 @@ async function main() {
     const missing = await request('GET', '/api/investigations/00000000-0000-0000-0000-000000000099', null, adminToken);
     check('investigation detail 404 for unknown', missing.status === 404);
 
+    // ─── DevPulse 2.0 Phase 3: Incident Intelligence ───
+    const reg2 = await request('POST', '/api/auth/register', { email: `smoke2${stamp}@test.dev`, username: `smoke2${String(stamp).slice(-7)}`, password: 'password123' });
+    const user2Token = reg2.json?.data?.accessToken;
+    const user2Id = reg2.json?.data?.user?.id;
+    check('second user registered (for isolation)', reg2.status === 201 && !!user2Token, JSON.stringify(reg2.json));
+
+    // Seed the incident with ping failures, a linked alert, an update, and a
+    // deployment that precedes the first failure, then verify the timeline.
+    const started = new Date(incident.startedAt);
+    const minsAgo = (n) => new Date(started.getTime() - n * 60 * 1000);
+    const minsAfter = (n) => new Date(started.getTime() + n * 60 * 1000);
+
+    await prisma.pingLog.createMany({
+      data: [
+        { endpointId, isUp: true, responseTimeMs: 120, checkedAt: minsAgo(5) },
+        { endpointId, isUp: true, responseTimeMs: 90, checkedAt: minsAgo(2) },
+        { endpointId, isUp: false, responseTimeMs: 15000, checkedAt: minsAfter(1) },
+        { endpointId, isUp: false, responseTimeMs: 15000, checkedAt: minsAfter(2) },
+        { endpointId, isUp: false, responseTimeMs: 15000, checkedAt: minsAfter(3) },
+        { endpointId, isUp: true, responseTimeMs: 110, checkedAt: minsAfter(5) },
+      ],
+    });
+
+    await prisma.alert.create({
+      data: { endpointId, type: 'DOWN', incidentId: incident.id, sentAt: minsAfter(1) },
+    });
+
+    await prisma.deployment.create({
+      data: {
+        userId,
+        environment: 'production',
+        commitSha: 'a'.repeat(40),
+        status: 'completed',
+        source: 'api',
+        deployedAt: minsAgo(2),
+      },
+    });
+
+    await prisma.incidentUpdate.create({
+      data: { incidentId: incident.id, message: 'Investigating elevated error rate', createdAt: minsAfter(1) },
+    });
+
+    const timeline = await request('GET', `/api/incidents/${incident.id}/timeline`, null, adminToken);
+    const tl = timeline.json?.data;
+    check('incident timeline 200 with incident header', timeline.status === 200 && tl?.incident?.id === incident.id, JSON.stringify(timeline.json));
+    check('timeline contains deployment event', tl?.events?.some((e) => e.type === 'deployment'), JSON.stringify(tl?.events?.map((e) => e.type)));
+    check('timeline contains alert event', tl?.events?.some((e) => e.type === 'alert' && e.alertType === 'DOWN'), '');
+    check('timeline contains incident_update event', tl?.events?.some((e) => e.type === 'incident_update'), '');
+    check('timeline clusters 3 failures into 1 episode', tl?.correlation?.failureEpisodes?.length === 1 && tl?.correlation?.failureEpisodes?.[0]?.count === 3, JSON.stringify(tl?.correlation?.failureEpisodes));
+    check('timeline first failure identified', !!tl?.correlation?.firstFailureAt, JSON.stringify(tl?.correlation));
+    check('timeline correlates deployment before first failure', tl?.correlation?.likelyDeployment?.deploymentId && tl?.correlation?.deployments?.beforeFailure?.length === 1, JSON.stringify(tl?.correlation?.likelyDeployment));
+    check('timeline error rate reported', typeof tl?.correlation?.samples?.errorRate === 'number' && tl?.correlation?.samples?.errorRate === 0.5, JSON.stringify(tl?.correlation?.samples));
+
+    const incident2 = await prisma.incident.create({ data: { endpointId, startedAt: minsAgo(1440), resolvedAt: minsAgo(1430), durationMs: 600000 } });
+    await prisma.investigation.create({
+      data: {
+        incidentId: incident2.id,
+        status: 'COMPLETED',
+        summary: 'smoke-investigate returned 500 after cache headers deployment',
+        rootCause: 'cache headers misconfiguration',
+        completedAt: new Date(),
+      },
+    });
+
+    const similar = await request('GET', `/api/incidents/${incident.id}/similar`, null, adminToken);
+    const sim = similar.json?.data;
+    check('similar incidents 200', similar.status === 200 && Array.isArray(sim?.items), JSON.stringify(similar.json));
+    check('similar includes matching incident', sim?.items?.some((i) => i.id === incident2.id), JSON.stringify(sim?.items?.map((i) => i.id)));
+    check('similar excludes the incident itself', !sim?.items?.some((i) => i.id === incident.id), '');
+    check('similar ranks endpoint match + text score', sim?.items?.[0]?.endpointMatch && sim?.items?.[0]?.score > 0, JSON.stringify(sim?.items));
+
+    const timelineForeign = await request('GET', `/api/incidents/${incident.id}/timeline`, null, user2Token);
+    check('timeline ownership guard (other user 404)', timelineForeign.status === 404, JSON.stringify(timelineForeign.json));
+
+    const similarForeign = await request('GET', `/api/incidents/${incident.id}/similar`, null, user2Token);
+    check('similar ownership guard (other user 404)', similarForeign.status === 404, JSON.stringify(similarForeign.json));
+
     await getInvestigationWorker().close();
 
     // ─── DevPulse 2.0 Phase 2: Git Intelligence + Deployments ───
@@ -170,11 +247,6 @@ async function main() {
     // sync is covered by unit tests behind a token). Everything else is exercised
     // against the DB + worker paths that don't require hitting GitHub.
     initGitWorker();
-
-    const reg2 = await request('POST', '/api/auth/register', { email: `smoke2${stamp}@test.dev`, username: `smoke2${String(stamp).slice(-7)}`, password: 'password123' });
-    const user2Token = reg2.json?.data?.accessToken;
-    const user2Id = reg2.json?.data?.user?.id;
-    check('second user registered (for isolation)', reg2.status === 201 && !!user2Token, JSON.stringify(reg2.json));
 
     const gitNoAuth = await request('GET', '/api/github/repos');
     check('github repos requires auth', gitNoAuth.status === 401, JSON.stringify(gitNoAuth.json));

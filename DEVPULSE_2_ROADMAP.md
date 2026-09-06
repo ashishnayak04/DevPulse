@@ -180,17 +180,17 @@ Legend: `[ ]` not started · `[-]` in progress · `[x]` completed · `[!]` block
 - [-] Structured investigation output schema (Pydantic done in `ai-service/app/schemas.py`; Zod side lands with Phase 4 AI engine) + validation
 
 ### Phase 2 — Git Intelligence
-- [ ] Prisma models: `GitRepository`, `GitCommit`, `GitFileChange`, `Deployment`, `DeploymentCommit`
-- [ ] GitHub integration module: repo connect/disconnect UI + API (`/api/github/*`)
-- [ ] `git:sync` queue + worker (fetch commits/PRs/diffs on schedule + on incident open)
-- [ ] Deployment tracking (API + optional GitHub Actions/status hooks)
-- [ ] Ownership guard: repo belongs to a user; never expose private repo content to other users or the frontend
+- [x] Prisma models: `GitRepository`, `GitCommit`, `GitFileChange`, `Deployment`, `DeploymentCommit`
+- [x] GitHub integration module: repo connect/disconnect UI + API (`/api/github/*`)
+- [x] `git:sync` queue + worker (fetch commits/PRs/diffs on schedule + on incident open)
+- [x] Deployment tracking (API + optional GitHub Actions/status hooks)
+- [x] Ownership guard: repo belongs to a user; never expose private repo content to other users or the frontend
 
 ### Phase 3 — Incident Intelligence
-- [ ] Incident timeline builder (PingLog + Alert + Incident + Deployment events, chronological)
-- [ ] Event correlation (`incident:similarity` queue: cluster ping failures around incident window)
-- [ ] Deployment correlation (which deployment precedes the first failure?)
-- [ ] Historical incident search (PostgreSQL: text search across summaries/root causes, ordered by time window + endpoint similarity first)
+- [x] Incident timeline builder (PingLog + Alert + Incident + Deployment events, chronological)
+- [-] Event correlation (clustering + deployment correlation computed inline in the timeline builder; dedicated `incident:similarity` queue deferred until a consumer (Phase 4 AI) exists)
+- [x] Deployment correlation (which deployment precedes the first failure?)
+- [x] Historical incident search (PostgreSQL: text search across summaries/root causes, ordered by time window + endpoint similarity first)
 
 ### Phase 4 — AI Investigator
 - [ ] Investigation engine in AI service (tool-calling agent)
@@ -390,6 +390,8 @@ VERIFY_FAILURE_DROP_RATIO=0.3          # min relative improvement to call PASS
 | Item | Status |
 |------|--------|
 | Existing 1.0 smoke test (`backend/scripts/smoke-test.js`) | Passing — 27/27 (incl. Redis-gated investigation flow: trigger, 409 dedupe, list, terminal state, 404) |
+| Phase 2 smoke coverage (git + deployments, Redis-gated) | Passing — 50/50 total |
+| Phase 3 smoke coverage (timeline + similar, Redis-gated) | Passing — 64/64 total |
 | Unit tests | Not started |
 | Integration tests | Not started |
 | AI investigation tests | Not started |
@@ -430,23 +432,17 @@ VERIFY_FAILURE_DROP_RATIO=0.3          # min relative improvement to call PASS
 |------|--------|
 | 2026-09-05 | Phase 0 complete. Codebase analyzed; `DEVPULSE_2_ROADMAP.md` created. No production code modified. |
 | 2026-09-05 | Phase 1 shipped: Prisma `Investigation`/`InvestigationEvidence`/`InvestigationToolCall` + migration `20260905000000_add_investigation_models`; `investigationQueue` + `investigation.worker.js` (stub fails investigation until Phase 4); `ai.service.js`; `modules/investigations` REST (list/detail/trigger/rerun, ownership-scoped, 409 dedupe); wired in `app.js`/`server.js`; auto-trigger on incident DOWN in `ping.worker.js` (additive); `ai-service/` FastAPI scaffold with token-gated `/health` + Pydantic schemas; AI + GitHub env vars in `.env.example`/`config/env.js`; smoke test 27/27 PASS; frontend build PASS; worker hardened for stale jobs (deleted-incident). |
+| 2026-09-06 | Phase 3 shipped: `Alert.incidentId?` nullable FK (migration `20260906000010_add_alert_incident_link`); alert worker links DOWN/UP alerts to incidents; incident module gains `GET /api/incidents/:id/timeline` (chronological events from PingLog/Alert/IncidentUpdate/Deployment + failure clustering + deployment correlation) and `GET /api/incidents/:id/similar` (PostgreSQL full-text over investigation summaries/root causes, endpoint-similarity + text-relevance ordering, ownership-scoped); smoke test 64/64 PASS. |
 
 ---
 
 ## Current Task
 
-Phase 2 — Git Intelligence:
-
-1. Prisma models: `GitRepository`, `GitCommit`, `GitFileChange`, `Deployment`, `DeploymentCommit` + migration.
-2. GitHub integration module (`src/modules/github/`): connect/disconnect repo API (`/api/github/*`), ownership-scoped.
-3. `git:sync` queue + worker (fetch commits/PRs/diffs on schedule + on incident open).
-4. Deployment tracking (API `POST /api/deployments` + optional hooks).
-5. Env: wire `GITHUB_TOKEN` into `config/env.js`.
-6. Tests + regression run.
+Phase 2 complete. Note: WSL2 Redis localhost-forwarding is unreliable on this box (corp VPN/firewall) — use the Docker `devpulse-redis` container on `127.0.0.1:6379` (WSL `redis-server` stopped + disabled). Phase 3 (Incident Intelligence): timeline builder, event clustering + deployment correlation, historical incident search — shipped inline in the incident module (`GET /api/incidents/:id/timeline`, `GET /api/incidents/:id/similar`); `Alert.incidentId?` link added. A dedicated `incident:similarity` queue is deferred until Phase 4 consumes it.
 
 ## Next Task
 
-After Phase 2 passes testing → Phase 3 (Incident Intelligence): timeline builder, event correlation, deployment correlation, historical incident search.
+Phase 4 — AI Investigator (investigation engine in the FastAPI service, tool-calling agent wired to the Node API, evidence collection, cost guardrails), or Phase 8 investigation UI if a visible surface is wanted first.
 
 ---
 
