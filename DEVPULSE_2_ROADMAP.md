@@ -208,11 +208,11 @@ Legend: `[ ]` not started · `[-]` in progress · `[x]` completed · `[!]` block
 - [x] Code-aware investigation (agent inspects the top-ranked candidate source file before concluding — both LLM and mock mode)
 
 ### Phase 6 — Fix Verification
-- [ ] Prisma models: `FixSuggestion`, `FixVerification`
-- [ ] Deployment detection after investigation completes
-- [ ] Before/after metrics: failure count, uptime, avg latency, P95, incident recurrence
-- [ ] Verification engine → PASS / FAILED / INCONCLUSIVE
-- [ ] `incident:verify` queue + worker
+- [x] Prisma models: `FixSuggestion`, `FixVerification` (migration `20260906000020_add_fix_verification_models`)
+- [x] Deployment detection after investigation completes (verify worker picks the newest deployment ≥ incident start; completed deployments auto-queue a verification for the incident with a suggested fix)
+- [x] Before/after metrics: failure count, uptime, avg latency, P95, incident recurrence (`sampleMetrics` windowed on `VERIFY_SAMPLE_MINUTES`)
+- [x] Verification engine → PASS / FAILED / INCONCLUSIVE (`VERIFY_FAILURE_DROP_RATIO` threshold)
+- [x] `incident:verify` queue (`verificationQueue`) + worker (`verify.worker.js`) + `verification:*` socket events
 
 ### Phase 7 — Historical Intelligence
 - [ ] Similar-incident search results surfaced inside new investigations
@@ -394,6 +394,7 @@ VERIFY_FAILURE_DROP_RATIO=0.3          # min relative improvement to call PASS
 | Phase 3 smoke coverage (timeline + similar, Redis-gated) | Passing — 64/64 total |
 | Phase 4 smoke coverage (AI investigator, Redis-gated) | Passing — 82/82 total |
 | Phase 5 smoke coverage (code intelligence, Redis-gated) | Passing — 84/84 total |
+| Phase 6 smoke coverage (fix verification, Redis-gated) | Passing — 98/98 total |
 | Unit tests | Not started |
 | Integration tests | Not started |
 | AI investigation tests | Not started |
@@ -437,16 +438,17 @@ VERIFY_FAILURE_DROP_RATIO=0.3          # min relative improvement to call PASS
 | 2026-09-06 | Phase 3 shipped: `Alert.incidentId?` nullable FK (migration `20260906000010_add_alert_incident_link`); alert worker links DOWN/UP alerts to incidents; incident module gains `GET /api/incidents/:id/timeline` (chronological events from PingLog/Alert/IncidentUpdate/Deployment + failure clustering + deployment correlation) and `GET /api/incidents/:id/similar` (PostgreSQL full-text over investigation summaries/root causes, endpoint-similarity + text-relevance ordering, ownership-scoped); smoke test 64/64 PASS. |
 | 2026-09-06 | Phase 4 shipped (AI Investigator): token-gated `/api/internal/ai-context` module with 12 agent tool resolvers (incident, ping logs, alerts, timeline, deployment, git commit/diff/changed-files, source-file inspect, similar-incident search, historical resolution, recent investigations) all ownership-scoped by the incident's endpoint user; `Post /investigate` in `ai-service` runs a tool-calling agent (OpenAI-compatible chat completions with tools) with a deterministic mock chain-of-thought fallback when no `AI_API_KEY` is set — both real-effecting the same internal tools so evidence + tool audits are realistic; `backend/src/schemas/ai-result.schema.js` Zod contract; `investigation.worker.js` now validates + persists `Investigation` (summary, rootCause, confidence, affectedServices, related commit/deployment, changedFiles, suggestedFix, risk, verificationPlan) + `InvestigationEvidence` + `InvestigationToolCall` rows and emits `investigation:*` socket events; re-run replaces stale report rows; cost guardrails (max tool calls, token budget, timeouts, 402 budget error, 409 dedupe); similarity search switched to OR-conjoined `to_tsquery` so text relevance stays non-zero against rich AI summaries; fixed a BullMQ re-add no-op that silently prevented re-running a completed investigation; smoke test 82/82 PASS (spawns ai-service in mock mode end-to-end). |
 | 2026-09-06 | Phase 5 shipped (Code Intelligence): `get_changed_files` ranks changed files by failure-signal proximity (minutes from first failure, endpoint-token boost, `relevance` 0..1, `signalAt`) so the agent targets the file most likely implicated; `getFileContent` (backing `inspect_source_file`) gained a 5-minute in-memory TTL cache with a `cached` flag (capped size, only successful fetches); mock-mode agent now calls `get_changed_files` and inspects the top-ranked candidate source file (`inspect_source_file`) before concluding, adding a `source` evidence item and real tool-audit entries (gracefully degraded when `GITHUB_TOKEN` is unset); smoke test 84/84 PASS. |
+| 2026-09-06 | Phase 6 shipped (Fix Verification): Prisma `FixSuggestion`/`FixVerification` (migration `20260906000020_add_fix_verification_models`) materialize the investigation's suggested fix on demand; `verificationQueue` (`incident:verify`) + `verify.worker.js` detect the newest deployment since the incident started, compute before/after metrics over `VERIFY_SAMPLE_MINUTES` windows (failure count, error rate, uptime, avg/P95 latency, incident recurrence) and resolve PASS / FAILED / INCONCLUSIVE via `VERIFY_FAILURE_DROP_RATIO`, persisting `preMetrics`/`postMetrics`/`evidence` and emitting `verification:started/completed/failed` socket events; `POST /api/incidents/:id/verify` (ownership-scoped, 409 dedupe while active, `INVESTIGATION_NOT_READY`/`INVESTIGATION_NO_FIX` guards) + `GET /api/fix-verifications` (list w/ incident filter) + `GET /api/fix-verifications/:id`; completed deployments auto-queue a verification when a COMPLETED investigation with a suggested fix exists for the owner's incident; `VERIFY_SAMPLE_MINUTES`/`VERIFY_FAILURE_DROP_RATIO` config + `.env.example`; smoke test 98/98 PASS. |
 
 ---
 
 ## Current Task
 
-Phase 5 (Code Intelligence) shipped: `get_changed_files` ranks changed files by failure-signal proximity (`relevance`, `minutesFromSignal`, `signalAt`); `inspect_source_file` reads source via a 5-min TTL-cached `getFileContent` (`cached` flag); git diff analysis + linked deployments via `get_git_diff`; the agent now inspects the top-ranked candidate source file before concluding (mock mode included) — degraded gracefully on keyless boxes. Smoke test 84/84 PASS. Note: WSL2 Redis localhost-forwarding is unreliable on this box (corp VPN/firewall) — use the Docker `devpulse-redis` container on `127.0.0.1:6379` (WSL `redis-server` stopped + disabled).
+Phase 6 (Fix Verification) shipped: `FixSuggestion`/`FixVerification` models; `incident:verify` queue + worker that detects the post-investigation deployment, computes before/after metrics (failure count, error rate, uptime, avg/P95 latency, recurrence) over `VERIFY_SAMPLE_MINUTES` windows and resolves PASS / FAILED / INCONCLUSIVE via `VERIFY_FAILURE_DROP_RATIO`; `POST /api/incidents/:id/verify` + `GET /api/fix-verifications` REST (ownership-scoped, 409 dedupe); completed deployments auto-queue a verification when a suggested fix exists; `verification:*` socket events. Smoke test 98/98 PASS. Note: WSL2 Redis localhost-forwarding is unreliable on this box (corp VPN/firewall) — use the Docker `devpulse-redis` container on `127.0.0.1:6379` (WSL `redis-server` stopped + disabled).
 
 ## Next Task
 
-Phase 6 — Fix Verification (Prisma `FixSuggestion`/`FixVerification` models, deployment detection after investigation, before/after comparison of failure count/uptime/latency/P95/recurrence, PASS/FAILED/INCONCLUSIVE engine, `incident:verify` queue + worker), or Phase 8 investigation UI if a visible surface is wanted first.
+Phase 7 — Historical Intelligence (surface similar-incident results inside new investigations, incident embeddings only if PostgreSQL search proves insufficient, pgvector deferred, historical-resolution reuse in the AI agent prompt) or Phase 8 investigation UI if a visible surface is wanted first.
 
 ---
 

@@ -3,6 +3,7 @@ const HttpError = require('../../lib/http-error');
 const constants = require('../../constants');
 const logger = require('../../lib/logger');
 const { enqueueGitSync } = require('../../queues/git.queue');
+const { enqueueVerification } = require('../../queues/verify.queue');
 
 const allowedStatuses = ['pending', 'in_progress', 'completed', 'failed'];
 const allowedSources = ['api', 'github_actions', 'hook'];
@@ -77,6 +78,58 @@ async function linkKnownCommit(deploymentId, repositoryId, commitSha) {
   return true;
 }
 
+async function maybeAutoVerify(deployment, userId) {
+  try {
+    const candidate = await prisma.investigation.findFirst({
+      where: {
+        status: 'COMPLETED',
+        suggestedFix: { not: null },
+        incident: { endpoint: { userId }, startedAt: { lte: deployment.deployedAt } },
+      },
+      orderBy: { completedAt: 'desc' },
+      select: { id: true, incident: { select: { id: true, endpointId: true } } },
+    });
+    if (!candidate) return;
+
+    const fixSuggestion = await prisma.fixSuggestion.upsert({
+      where: { investigationId: candidate.id },
+      update: {},
+      create: { investigationId: candidate.id },
+    });
+
+    const alreadyLinked = await prisma.fixVerification.findFirst({
+      where: { incidentId: candidate.incident.id, deploymentId: deployment.id },
+      select: { id: true },
+    });
+    if (alreadyLinked) return;
+
+    const active = await prisma.fixVerification.findFirst({
+      where: { incidentId: candidate.incident.id, status: { in: ['QUEUED', 'RUNNING'] } },
+      select: { id: true },
+    });
+    if (active) return;
+
+    await prisma.fixVerification.create({
+      data: {
+        incidentId: candidate.incident.id,
+        fixSuggestionId: fixSuggestion.id,
+        deploymentId: deployment.id,
+        status: 'QUEUED',
+      },
+    });
+
+    await enqueueVerification({
+      incidentId: candidate.incident.id,
+      endpointId: candidate.incident.endpointId,
+      fixSuggestionId: fixSuggestion.id,
+      userId,
+    });
+    logger.info('Deployments', `Auto-enqueued fix verification for incident ${candidate.incident.id} after deployment ${deployment.id}`);
+  } catch (err) {
+    logger.error('Deployments', `Auto-verify failed after deployment ${deployment.id}: ${err.message}`);
+  }
+}
+
 async function createDeployment(user, data) {
   let repository = null;
   if (data.repositoryId) {
@@ -117,6 +170,10 @@ async function createDeployment(user, data) {
         reason: 'deployment',
       }).catch((err) => logger.error('Deployments', `Git sync enqueue failed for ${repository.fullName}: ${err.message}`));
     }
+  }
+
+  if (deployment.status === 'completed') {
+    maybeAutoVerify(deployment, user.id);
   }
 
   return deployment;

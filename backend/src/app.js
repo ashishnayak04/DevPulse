@@ -27,6 +27,7 @@ const incidentRoutes = require('./modules/incidents/incident.routes');
 const investigationRoutes = require('./modules/investigations/investigation.routes');
 const githubRoutes = require('./modules/github/github.routes');
 const deploymentRoutes = require('./modules/deployments/deployment.routes');
+const verificationRoutes = require('./modules/verifications/verification.routes');
 const statusPageRoutes = require('./modules/statuspage/statuspage.routes');
 const apiKeyRoutes = require('./modules/apikeys/apikey.routes');
 const teamRoutes = require('./modules/teams/team.routes');
@@ -76,6 +77,7 @@ function createApp() {
   app.use('/api/investigations', investigationRoutes);
   app.use('/api/github', githubRoutes);
   app.use('/api/deployments', deploymentRoutes);
+  app.use('/api/fix-verifications', verificationRoutes);
   app.use('/api/keys', apiKeyRoutes);
   app.use('/api/internal', internalRoutes);
   app.use('/api/teams', teamRoutes);

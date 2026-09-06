@@ -13,6 +13,7 @@ process.env.AI_SERVICE_TOKEN = 'smoke-ai-secret';
 const { createApp } = require('../src/app');
 const prisma = require('../src/lib/prisma');
 const { initInvestigationWorker, getInvestigationWorker } = require('../src/workers/investigation.worker');
+const { initVerificationWorker, getVerificationWorker } = require('../src/workers/verify.worker');
 const { initGitWorker, getGitWorker } = require('../src/workers/git.worker');
 const { enqueueGitSync } = require('../src/queues/git.queue');
 
@@ -349,6 +350,80 @@ async function main() {
 
     await getInvestigationWorker().close();
     aiService.kill();
+
+    // ─── DevPulse 2.0 Phase 6: Fix Verification ───
+    // incident.* now has a COMPLETED investigation with a suggested fix (Phase 4
+    // rerun). Model the fix: a completed deployment between the incident's last
+    // failure (+3m) and its recovery ping (+5m), so pre = failures, post = clean.
+    const fixDeploy = await prisma.deployment.create({
+      data: {
+        userId,
+        environment: 'production',
+        commitSha: 'f'.repeat(40),
+        status: 'completed',
+        source: 'api',
+        deployedAt: new Date(incident.startedAt.getTime() + 4 * 60 * 1000),
+      },
+    });
+
+    const verifyForeignPost = await request('POST', `/api/incidents/${incident.id}/verify`, {}, user2Token);
+    check('verify trigger ownership guard (other user 404)', verifyForeignPost.status === 404, JSON.stringify(verifyForeignPost.json));
+
+    const verifyTrigger = await request('POST', `/api/incidents/${incident.id}/verify`, {}, adminToken);
+    check('manual verify trigger 201 (QUEUED)', verifyTrigger.status === 201 && verifyTrigger.json?.data?.verification?.status === 'QUEUED' && !!verifyTrigger.json?.data?.fixSuggestion?.id, JSON.stringify(verifyTrigger.json));
+
+    const verifyDup = await request('POST', `/api/incidents/${incident.id}/verify`, {}, adminToken);
+    check('verify dedupe while queued 409', verifyDup.status === 409 && verifyDup.json?.error?.code === 'VERIFICATION_IN_PROGRESS', JSON.stringify(verifyDup.json));
+
+    const verifyNotReady = await request('POST', `/api/incidents/${incident2.id}/verify`, {}, adminToken);
+    check('verify requires investigation with a fix', verifyNotReady.status === 409 && ['INVESTIGATION_NOT_READY', 'INVESTIGATION_NO_FIX'].includes(verifyNotReady.json?.error?.code), JSON.stringify(verifyNotReady.json));
+
+    initVerificationWorker();
+
+    let ver;
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      ver = await request('GET', `/api/fix-verifications/${verifyTrigger.json.data.verification.id}`, null, adminToken);
+      const s = ver.json?.data?.verification?.status;
+      if (s === 'PASS' || s === 'FAILED' || s === 'INCONCLUSIVE') break;
+    }
+    check('verification reaches terminal PASS', ver.json?.data?.verification?.status === 'PASS', JSON.stringify({ status: ver.json?.data?.verification?.status, err: ver.json?.data?.verification?.error }));
+    check('verification links the fix deployment', ver.json?.data?.verification?.deploymentId === fixDeploy.id, JSON.stringify(ver.json?.data?.verification?.deploymentId));
+    check('pre metrics show incident error rate', ver.json?.data?.verification?.preMetrics?.errorRate > 0, JSON.stringify(ver.json?.data?.verification?.preMetrics));
+    check('post metrics clean after fix', ver.json?.data?.verification?.postMetrics?.errorRate === 0 && ver.json?.data?.verification?.postMetrics?.uptime === 1, JSON.stringify(ver.json?.data?.verification?.postMetrics));
+    check('evidence includes recurrence + comparison', ver.json?.data?.verification?.evidence?.recurrence === 0 && typeof ver.json?.data?.verification?.evidence?.comparison?.errorRatePost === 'number', JSON.stringify(ver.json?.data?.verification?.evidence));
+
+    const verifyForeign = await request('GET', `/api/fix-verifications/${verifyTrigger.json.data.verification.id}`, null, user2Token);
+    check('verification ownership guard (other user 404)', verifyForeign.status === 404, JSON.stringify(verifyForeign.json));
+
+    const verifyList = await request('GET', `/api/fix-verifications?incidentId=${incident.id}`, null, adminToken);
+    check('verification list filtered by incident', verifyList.status === 200 && verifyList.json?.data?.items?.length === 1 && verifyList.json.data.items[0].id === verifyTrigger.json.data.verification.id, JSON.stringify(verifyList.json));
+
+    const missingVer = await request('GET', '/api/fix-verifications/00000000-0000-0000-0000-000000000099', null, adminToken);
+    check('verification detail 404 unknown', missingVer.status === 404, JSON.stringify(missingVer.json));
+
+    // Auto-verification: a fresh completed deployment (no repo needed) whose
+    // deployedAt is newer than the simulated fix deploy auto-queues a check for
+    // the user's COMPLETED investigation + suggested fix. No post samples exist
+    // in its window, so it resolves INCONCLUSIVE deterministically.
+    const autoDeploy = await request('POST', '/api/deployments', {
+      environment: 'production',
+      commitSha: 'e'.repeat(40),
+      description: 'auto-verify deploy',
+      deployedAt: new Date(Date.now() + 10 * 60 * 1000),
+    }, adminToken);
+    check('auto-verify deployment created', autoDeploy.status === 201 && !!autoDeploy.json?.data?.deployment?.id, JSON.stringify(autoDeploy.json));
+
+    let autoVer;
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      const autoList = await request('GET', `/api/fix-verifications?incidentId=${incident.id}`, null, adminToken);
+      autoVer = autoList.json?.data?.items?.find((v) => v.deploymentId === autoDeploy.json?.data?.deployment?.id && v.id !== verifyTrigger.json.data.verification.id);
+      if (autoVer && ['PASS', 'FAILED', 'INCONCLUSIVE'].includes(autoVer.status)) break;
+    }
+    check('auto-verify runs on completed deployment', !!autoVer && ['PASS', 'FAILED', 'INCONCLUSIVE'].includes(autoVer.status), JSON.stringify(autoVer));
+
+    await getVerificationWorker().close();
 
     // ─── DevPulse 2.0 Phase 2: Git Intelligence + Deployments ───
     // GitHub token is not configured in test env, so connect fails cleanly (real

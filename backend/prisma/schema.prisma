@@ -217,6 +217,7 @@ model Incident {
   updates  IncidentUpdate[]
   alerts   Alert[]
   investigation Investigation?
+  verifications FixVerification[]
 
   @@index([endpointId])
   @@index([startedAt])
@@ -436,6 +437,7 @@ model Investigation {
   incident Incident              @relation(fields: [incidentId], references: [id], onDelete: Cascade)
   evidence InvestigationEvidence[]
   toolCalls InvestigationToolCall[]
+  fixSuggestion FixSuggestion?
 
   @@index([status])
   @@index([createdAt])
@@ -547,6 +549,7 @@ model Deployment {
   user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   repository GitRepository?     @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
   commits    DeploymentCommit[]
+  fixVerifications FixVerification[]
 
   @@index([userId])
   @@index([repositoryId])
@@ -562,4 +565,45 @@ model DeploymentCommit {
 
   @@id([deploymentId, commitId])
   @@index([commitId])
+}
+
+// ─── DevPulse 2.0: Fix Verification ───────────────────────
+
+model FixSuggestion {
+  id               String   @id @default(uuid())
+  investigationId  String   @unique
+  title            String?
+  description      String?
+  diff             String?
+  risk             String?  // low | medium | high | critical
+  verificationPlan String?
+  createdAt        DateTime @default(now())
+
+  investigation Investigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  verifications FixVerification[]
+
+  @@index([investigationId])
+}
+
+model FixVerification {
+  id              String   @id @default(uuid())
+  incidentId      String
+  fixSuggestionId String?
+  deploymentId    String?
+  status          String   @default("QUEUED") // QUEUED | RUNNING | PASS | FAILED | INCONCLUSIVE
+  preMetrics      Json?
+  postMetrics     Json?
+  evidence        Json?
+  error           String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  incident      Incident?      @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  fixSuggestion FixSuggestion? @relation(fields: [fixSuggestionId], references: [id], onDelete: SetNull)
+  deployment    Deployment?    @relation(fields: [deploymentId], references: [id], onDelete: SetNull)
+
+  @@index([incidentId])
+  @@index([status])
+  @@index([deploymentId])
 }

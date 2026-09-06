@@ -2,6 +2,7 @@ const prisma = require('../../lib/prisma');
 const { Prisma } = require('@prisma/client');
 const HttpError = require('../../lib/http-error');
 const constants = require('../../constants');
+const { enqueueVerification } = require('../../queues/verify.queue');
 
 const MINUTE_MS = 60 * 1000;
 
@@ -457,6 +458,75 @@ async function findSimilarForIncident(incident, { limit, ownerUserId }) {
   };
 }
 
+// ─── Phase 6: Fix Verification ───────────────────────────
+
+async function materializeFixSuggestion(investigation) {
+  if (!investigation || !investigation.suggestedFix) return null;
+  return prisma.fixSuggestion.upsert({
+    where: { investigationId: investigation.id },
+    update: {},
+    create: {
+      investigationId: investigation.id,
+      title: investigation.summary || null,
+      description: investigation.suggestedFix,
+      risk: investigation.risk || null,
+      verificationPlan: investigation.verificationPlan || null,
+    },
+  });
+}
+
+async function triggerVerification(incidentId, user) {
+  const incident = await prisma.incident.findFirst({
+    where: { id: incidentId, ...ownershipWhere(user) },
+    select: { id: true, endpointId: true, endpoint: { select: { userId: true } } },
+  });
+  if (!incident) {
+    throw new HttpError('Incident not found', { statusCode: 404, code: 'NOT_FOUND' });
+  }
+
+  const investigation = await prisma.investigation.findUnique({
+    where: { incidentId },
+    select: { id: true, status: true, summary: true, suggestedFix: true, risk: true, verificationPlan: true },
+  });
+  if (!investigation || investigation.status !== 'COMPLETED') {
+    throw new HttpError('Investigate the incident before verifying a fix', {
+      statusCode: 409,
+      code: 'INVESTIGATION_NOT_READY',
+    });
+  }
+  if (!investigation.suggestedFix) {
+    throw new HttpError('The investigation did not produce a suggested fix to verify', {
+      statusCode: 409,
+      code: 'INVESTIGATION_NO_FIX',
+    });
+  }
+
+  const active = await prisma.fixVerification.findFirst({
+    where: { incidentId, status: { in: ['QUEUED', 'RUNNING'] } },
+    select: { id: true },
+  });
+  if (active) {
+    throw new HttpError('A fix verification is already in progress for this incident', {
+      statusCode: 409,
+      code: 'VERIFICATION_IN_PROGRESS',
+    });
+  }
+
+  const fixSuggestion = await materializeFixSuggestion(investigation);
+  const verification = await prisma.fixVerification.create({
+    data: { incidentId, fixSuggestionId: fixSuggestion ? fixSuggestion.id : null, status: 'QUEUED' },
+  });
+
+  await enqueueVerification({
+    incidentId,
+    endpointId: incident.endpointId,
+    fixSuggestionId: fixSuggestion ? fixSuggestion.id : null,
+    userId: incident.endpoint.userId,
+  });
+
+  return { verification, fixSuggestion };
+}
+
 module.exports = {
   listIncidents,
   getIncident,
@@ -466,4 +536,5 @@ module.exports = {
   getSimilarIncidents,
   buildTimelineForIncident,
   findSimilarForIncident,
+  triggerVerification,
 };

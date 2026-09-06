@@ -13,6 +13,7 @@ router.get('/:id', incidentController.get);
 router.get('/:id/timeline', incidentController.timeline);
 router.get('/:id/similar', incidentController.similar);
 router.post('/:id/updates', validate(createIncidentUpdateSchema), incidentController.addUpdate);
+router.post('/:id/verify', incidentController.verify);
 router.patch('/:id/acknowledge', incidentController.acknowledge);
 
 module.exports = router;

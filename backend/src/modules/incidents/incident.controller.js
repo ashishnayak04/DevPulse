@@ -54,4 +54,13 @@ async function similar(req, res, next) {
   }
 }
 
-module.exports = { list, get, addUpdate, acknowledge, timeline, similar };
+async function verify(req, res, next) {
+  try {
+    const result = await incidentService.triggerVerification(req.params.id, req.user);
+    res.status(201).json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { list, get, addUpdate, acknowledge, timeline, similar, verify };

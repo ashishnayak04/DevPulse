@@ -50,6 +50,12 @@ const config = {
     filePatch: process.env.GITHUB_FETCH_PATCH !== 'false',
   },
 
+  verification: {
+    sampleMinutes: toInt(process.env.VERIFY_SAMPLE_MINUTES, 60),
+    failureDropRatio: parseFloat(process.env.VERIFY_FAILURE_DROP_RATIO || '0.3'),
+    maxSamples: toInt(process.env.VERIFY_MAX_SAMPLES, 2000),
+  },
+
   clientBuildPath: require('path').join(__dirname, '..', '..', '..', 'frontend', 'dist'),
 };
 
