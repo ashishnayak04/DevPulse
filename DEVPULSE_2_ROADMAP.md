@@ -215,21 +215,21 @@ Legend: `[ ]` not started · `[-]` in progress · `[x]` completed · `[!]` block
 - [x] `incident:verify` queue (`verificationQueue`) + worker (`verify.worker.js`) + `verification:*` socket events
 
 ### Phase 7 — Historical Intelligence
-- [ ] Similar-incident search results surfaced inside new investigations
+- [x] Similar-incident search results surfaced inside new investigations
 - [ ] Incident embeddings (only if/when PostgreSQL search proves insufficient)
 - [ ] pgvector extension + migration (deferred/gated)
-- [ ] Historical resolution reuse in AI agent prompt
+- [x] Historical resolution reuse in AI agent prompt
 
 ### Phase 8 — UI
-- [ ] `/incidents/:id/investigation` page (Incident → Timeline → What happened → What changed → Root cause → Evidence → Suggested fix → Fix verification)
-- [ ] Timeline component (reuse existing design system + `RelativeTime`)
-- [ ] Root cause UI (summary, confidence, affected services, FACT/INFERENCE/HYPOTHESIS chips)
-- [ ] Evidence UI (tool calls, sources, ping excerpts, git diff)
-- [ ] Git changes UI (changed files, commit/PR cards)
-- [ ] Suggested fix UI (fix, risk, verification plan; copyable patch/diff)
-- [ ] Verification UI (before/after metric comparison + PASS/FAILED/INCONCLUSIVE badge)
-- [ ] Settings tab: connect/disconnect GitHub repo + repo status
-- [ ] Link from Incident detail/list → Investigation
+- [x] `/incidents/:id/investigation` page (Incident → Timeline → What happened → What changed → Root cause → Evidence → Suggested fix → Fix verification)
+- [x] Timeline component (reuse existing design system + `RelativeTime`)
+- [x] Root cause UI (summary, confidence, affected services, FACT/INFERENCE/HYPOTHESIS chips)
+- [x] Evidence UI (tool calls, sources, ping excerpts, git diff)
+- [x] Git changes UI (changed files, commit/PR cards)
+- [x] Suggested fix UI (fix, risk, verification plan; copyable patch/diff)
+- [x] Verification UI (before/after metric comparison + PASS/FAILED/INCONCLUSIVE badge)
+- [x] Settings tab: connect/disconnect GitHub repo + repo status
+- [x] Link from Incident detail/list → Investigation
 
 ### Phase 9 — Testing
 - [ ] Unit tests (timeline builder, correlation, verification engine, serializers)
@@ -283,6 +283,8 @@ All new routes are **additive**; existing contracts untouched.
 |--------|------|-------------|------|
 | GET | `/api/investigations` | List investigations (user-scoped; admin sees all) | Bearer |
 | GET | `/api/investigations/:id` | Detail incl. evidence + tool calls | Bearer |
+| GET | `/api/investigations/by-incident/:incidentId` | Lookup investigation by incident ID (returns full detail incl. fixSuggestion + verifications) | Bearer |
+| GET | `/api/investigations/:id/similar` | Similar historical incidents for an investigation | Bearer |
 | POST | `/api/investigations/:id/rerun` | Re-run investigation (rate-limited) | Bearer |
 | GET | `/api/investigations/:incidentId/options` | Check whether investigation exists / is running (dedupe helper) | Bearer |
 | GET | `/api/github/repos` | List connected repos | Bearer/API key |
@@ -439,19 +441,20 @@ VERIFY_FAILURE_DROP_RATIO=0.3          # min relative improvement to call PASS
 | 2026-09-06 | Phase 4 shipped (AI Investigator): token-gated `/api/internal/ai-context` module with 12 agent tool resolvers (incident, ping logs, alerts, timeline, deployment, git commit/diff/changed-files, source-file inspect, similar-incident search, historical resolution, recent investigations) all ownership-scoped by the incident's endpoint user; `Post /investigate` in `ai-service` runs a tool-calling agent (OpenAI-compatible chat completions with tools) with a deterministic mock chain-of-thought fallback when no `AI_API_KEY` is set — both real-effecting the same internal tools so evidence + tool audits are realistic; `backend/src/schemas/ai-result.schema.js` Zod contract; `investigation.worker.js` now validates + persists `Investigation` (summary, rootCause, confidence, affectedServices, related commit/deployment, changedFiles, suggestedFix, risk, verificationPlan) + `InvestigationEvidence` + `InvestigationToolCall` rows and emits `investigation:*` socket events; re-run replaces stale report rows; cost guardrails (max tool calls, token budget, timeouts, 402 budget error, 409 dedupe); similarity search switched to OR-conjoined `to_tsquery` so text relevance stays non-zero against rich AI summaries; fixed a BullMQ re-add no-op that silently prevented re-running a completed investigation; smoke test 82/82 PASS (spawns ai-service in mock mode end-to-end). |
 | 2026-09-06 | Phase 5 shipped (Code Intelligence): `get_changed_files` ranks changed files by failure-signal proximity (minutes from first failure, endpoint-token boost, `relevance` 0..1, `signalAt`) so the agent targets the file most likely implicated; `getFileContent` (backing `inspect_source_file`) gained a 5-minute in-memory TTL cache with a `cached` flag (capped size, only successful fetches); mock-mode agent now calls `get_changed_files` and inspects the top-ranked candidate source file (`inspect_source_file`) before concluding, adding a `source` evidence item and real tool-audit entries (gracefully degraded when `GITHUB_TOKEN` is unset); smoke test 84/84 PASS. |
 | 2026-09-06 | Phase 6 shipped (Fix Verification): Prisma `FixSuggestion`/`FixVerification` (migration `20260906000020_add_fix_verification_models`) materialize the investigation's suggested fix on demand; `verificationQueue` (`incident:verify`) + `verify.worker.js` detect the newest deployment since the incident started, compute before/after metrics over `VERIFY_SAMPLE_MINUTES` windows (failure count, error rate, uptime, avg/P95 latency, incident recurrence) and resolve PASS / FAILED / INCONCLUSIVE via `VERIFY_FAILURE_DROP_RATIO`, persisting `preMetrics`/`postMetrics`/`evidence` and emitting `verification:started/completed/failed` socket events; `POST /api/incidents/:id/verify` (ownership-scoped, 409 dedupe while active, `INVESTIGATION_NOT_READY`/`INVESTIGATION_NO_FIX` guards) + `GET /api/fix-verifications` (list w/ incident filter) + `GET /api/fix-verifications/:id`; completed deployments auto-queue a verification when a COMPLETED investigation with a suggested fix exists for the owner's incident; `VERIFY_SAMPLE_MINUTES`/`VERIFY_FAILURE_DROP_RATIO` config + `.env.example`; smoke test 98/98 PASS. |
+| 2026-09-09 | Phase 7+8 shipped (Historical Intelligence + Investigation UI): `GET /api/investigations/:id/similar` endpoint surfacing similar-incident search results with score/endpointMatch/timeGap; `GET /api/investigations/by-incident/:incidentId` for incident-to-investigation lookup; `getInvestigation()` enriched with `fixSuggestion` + `verifications` (deployment, pre/post metrics); InvestigationDetail page (`/incidents/:id/investigation`) with root cause analysis (confidence bar, risk badge), affected services, changed files, evidence list (FACT/INFERENCE/HYPOTHESIS chips), suggested fix + verification plan, fix verification panel (before/after metrics, PASS/FAILED/INCONCLUSIVE badge), similar incidents panel (score, endpoint match, time gap), tool call audit (collapsible); Socket.io real-time updates (`investigation:*`, `verification:*`); incidents list now links to investigation page with status indicator. |
 
 ---
 
 ## Current Task
 
-Phase 6 (Fix Verification) shipped: `FixSuggestion`/`FixVerification` models; `incident:verify` queue + worker that detects the post-investigation deployment, computes before/after metrics (failure count, error rate, uptime, avg/P95 latency, recurrence) over `VERIFY_SAMPLE_MINUTES` windows and resolves PASS / FAILED / INCONCLUSIVE via `VERIFY_FAILURE_DROP_RATIO`; `POST /api/incidents/:id/verify` + `GET /api/fix-verifications` REST (ownership-scoped, 409 dedupe); completed deployments auto-queue a verification when a suggested fix exists; `verification:*` socket events. Smoke test 98/98 PASS. Note: WSL2 Redis localhost-forwarding is unreliable on this box (corp VPN/firewall) — use the Docker `devpulse-redis` container on `127.0.0.1:6379` (WSL `redis-server` stopped + disabled).
+Phases 7 (Historical Intelligence) and 8 (Investigation UI) shipped: `GET /api/investigations/:id/similar` endpoint surfacing similar-incident search results inside investigations; `GET /api/investigations/by-incident/:incidentId` for incident-to-investigation lookup; `getInvestigation()` now returns `fixSuggestion` + `verifications`; InvestigationDetail page at `/incidents/:id/investigation` with root cause analysis (confidence bar, risk badge), evidence list (FACT/INFERENCE/HYPOTHESIS chips), changed files, suggested fix + verification plan, fix verification (before/after metrics, PASS/FAILED/INCONCLUSIVE), similar incidents panel, tool call audit (collapsible), Socket.io real-time updates; incidents list linked to investigation page.
 
 ## Next Task
 
-Phase 7 — Historical Intelligence (surface similar-incident results inside new investigations, incident embeddings only if PostgreSQL search proves insufficient, pgvector deferred, historical-resolution reuse in the AI agent prompt) or Phase 8 investigation UI if a visible surface is wanted first.
+Phase 9 — Testing (unit tests, integration tests, AI investigation tests, regression tests, security tests, load tests) or Phase 10 — Production (Docker, CI/CD, monitoring, logging, error handling, deployment verification).
 
 ---
 
 ## Last Updated
 
-2026-09-06
+2026-09-09

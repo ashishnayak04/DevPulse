@@ -20,6 +20,7 @@ const Activity = lazy(() => import('./pages/Activity'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Incidents = lazy(() => import('./pages/Incidents'));
+const InvestigationDetail = lazy(() => import('./pages/InvestigationDetail'));
 const Teams = lazy(() => import('./pages/Teams'));
 const TeamStatusPage = lazy(() => import('./pages/TeamStatusPage'));
 const Privacy = lazy(() => import('./pages/Privacy'));
@@ -81,6 +82,7 @@ const App = () => {
                 <Route path="/activity" element={<Activity />} />
                 <Route path="/endpoints/:id" element={<EndpointDetail />} />
                 <Route path="/incidents" element={<Incidents />} />
+                <Route path="/incidents/:id/investigation" element={<InvestigationDetail />} />
                 <Route path="/teams" element={<Teams />} />
                 <Route path="/teams/:slug" element={<Teams />} />
               </Route>

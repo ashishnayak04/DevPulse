@@ -9,6 +9,8 @@ const router = express.Router();
 router.use(verifyToken);
 
 router.get('/', investigationController.list);
+router.get('/by-incident/:incidentId', investigationController.getByIncident);
+router.get('/:id/similar', investigationController.similar);
 router.get('/:id', investigationController.get);
 router.post('/', validate(triggerInvestigationSchema), investigationController.trigger);
 router.post('/:id/rerun', validate(rerunInvestigationSchema), investigationController.rerun);

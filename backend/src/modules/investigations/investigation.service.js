@@ -2,6 +2,7 @@ const prisma = require('../../lib/prisma');
 const HttpError = require('../../lib/http-error');
 const constants = require('../../constants');
 const { enqueueInvestigation } = require('../../queues/investigation.queue');
+const { findSimilarForIncident } = require('../incidents/incident.service');
 const logger = require('../../lib/logger');
 
 const investigationSummarySelect = {
@@ -85,6 +86,16 @@ async function getInvestigation(investigationId, user) {
       },
       evidence: { orderBy: { createdAt: 'asc' } },
       toolCalls: { orderBy: { createdAt: 'asc' } },
+      fixSuggestion: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          diff: true,
+          risk: true,
+          verificationPlan: true,
+        },
+      },
     },
   });
 
@@ -92,7 +103,54 @@ async function getInvestigation(investigationId, user) {
     throw new HttpError('Investigation not found', { statusCode: 404, code: 'NOT_FOUND' });
   }
 
-  return investigation;
+  const verifications = await prisma.fixVerification.findMany({
+    where: { incidentId: investigation.incidentId },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      status: true,
+      preMetrics: true,
+      postMetrics: true,
+      evidence: true,
+      error: true,
+      startedAt: true,
+      completedAt: true,
+      createdAt: true,
+      deployment: {
+        select: { id: true, environment: true, commitSha: true, deployedAt: true, status: true },
+      },
+    },
+  });
+
+  return { ...investigation, verifications };
+}
+
+async function getSimilarIncidentsForInvestigation(investigationId, user) {
+  const investigation = await prisma.investigation.findFirst({
+    where: { id: investigationId, ...ownershipWhere(user) },
+    select: {
+      id: true,
+      incidentId: true,
+    },
+  });
+
+  if (!investigation) {
+    throw new HttpError('Investigation not found', { statusCode: 404, code: 'NOT_FOUND' });
+  }
+
+  const incident = await prisma.incident.findFirst({
+    where: { id: investigation.incidentId },
+    include: { endpoint: { select: { id: true, name: true, userId: true } } },
+  });
+
+  if (!incident) {
+    throw new HttpError('Incident not found', { statusCode: 404, code: 'NOT_FOUND' });
+  }
+
+  return findSimilarForIncident(incident, {
+    limit: constants.intelligence.similarDefaultLimit,
+    ownerUserId: user.role === 'ADMIN' ? null : user.id,
+  });
 }
 
 async function assertOwnedIncident(incidentId, user) {
@@ -175,9 +233,66 @@ async function rerunInvestigation(investigationId, user) {
   });
 }
 
+async function findByIncidentId(incidentId, user) {
+  const investigation = await prisma.investigation.findFirst({
+    where: { incidentId, ...ownershipWhere(user) },
+    include: {
+      incident: {
+        select: {
+          id: true,
+          startedAt: true,
+          resolvedAt: true,
+          durationMs: true,
+          acknowledged: true,
+          endpoint: { select: { id: true, name: true, url: true } },
+        },
+      },
+      evidence: { orderBy: { createdAt: 'asc' } },
+      toolCalls: { orderBy: { createdAt: 'asc' } },
+      fixSuggestion: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          diff: true,
+          risk: true,
+          verificationPlan: true,
+        },
+      },
+    },
+  });
+
+  if (!investigation) {
+    return null;
+  }
+
+  const verifications = await prisma.fixVerification.findMany({
+    where: { incidentId },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      status: true,
+      preMetrics: true,
+      postMetrics: true,
+      evidence: true,
+      error: true,
+      startedAt: true,
+      completedAt: true,
+      createdAt: true,
+      deployment: {
+        select: { id: true, environment: true, commitSha: true, deployedAt: true, status: true },
+      },
+    },
+  });
+
+  return { ...investigation, verifications };
+}
+
 module.exports = {
   listInvestigations,
   getInvestigation,
+  findByIncidentId,
+  getSimilarIncidentsForInvestigation,
   triggerInvestigation,
   rerunInvestigation,
 };

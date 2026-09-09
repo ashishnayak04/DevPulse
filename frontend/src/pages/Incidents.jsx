@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertOctagon, ChevronDown, Check, X, SendHorizontal } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AlertOctagon, ChevronDown, Check, X, SendHorizontal, Search } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { api } from '../api';
 import { useToast } from '../components/Toast';
@@ -37,6 +38,7 @@ function incidentDuration(item) {
 
 export const Incidents = () => {
   const { addToast } = useToast();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [, setTick] = useState(0);
 
@@ -52,6 +54,7 @@ export const Incidents = () => {
   const [draft, setDraft] = useState('');
   const [posting, setPosting] = useState(false);
   const [ackingId, setAckingId] = useState(null);
+  const [investigations, setInvestigations] = useState({});
 
   useEffect(() => {
     const timer = setInterval(() => setTick((t) => t + 1), 30000);
@@ -91,6 +94,12 @@ export const Incidents = () => {
     try {
       const data = await api.get(`/incidents/${id}`);
       setDetails((prev) => ({ ...prev, [id]: { loading: false, updates: data.incident?.updates || [] } }));
+      try {
+        const invData = await api.get(`/investigations/by-incident/${id}`);
+        setInvestigations((prev) => ({ ...prev, [id]: invData.investigation }));
+      } catch {
+        setInvestigations((prev) => ({ ...prev, [id]: null }));
+      }
     } catch (err) {
       console.error('Failed to fetch incident:', err);
       setDetails((prev) => ({ ...prev, [id]: { loading: false, updates: [], error: err.message } }));
@@ -282,6 +291,19 @@ export const Incidents = () => {
                                 </ul>
 
                                 <div className="incidents-detail-actions">
+                                  {investigations[item.id]?.status && (
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      icon={Search}
+                                      onClick={() => navigate(`/incidents/${item.id}/investigation`)}
+                                    >
+                                      {investigations[item.id].status === 'COMPLETED' ? 'View Investigation' :
+                                       investigations[item.id].status === 'RUNNING' ? 'Investigation Running...' :
+                                       investigations[item.id].status === 'QUEUED' ? 'Investigation Queued' :
+                                       'View Investigation'}
+                                    </Button>
+                                  )}
                                   {isOpen && !item.acknowledged && (
                                     <Button
                                       size="sm"

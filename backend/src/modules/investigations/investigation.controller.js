@@ -36,4 +36,22 @@ async function rerun(req, res, next) {
   }
 }
 
-module.exports = { list, get, trigger, rerun };
+async function getByIncident(req, res, next) {
+  try {
+    const investigation = await investigationService.findByIncidentId(req.params.incidentId, req.user);
+    res.json({ success: true, data: { investigation } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function similar(req, res, next) {
+  try {
+    const result = await investigationService.getSimilarIncidentsForInvestigation(req.params.id, req.user);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { list, get, getByIncident, trigger, rerun, similar };
