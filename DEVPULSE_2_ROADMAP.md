@@ -232,11 +232,11 @@ Legend: `[ ]` not started · `[-]` in progress · `[x]` completed · `[!]` block
 - [x] Link from Incident detail/list → Investigation
 
 ### Phase 9 — Testing
-- [ ] Unit tests (timeline builder, correlation, verification engine, serializers)
-- [ ] Integration tests (investigation flow, git sync, API endpoints)
-- [ ] AI investigation tests (mock LLM + mock Node API; schema validation of output)
-- [ ] Regression tests (extend existing smoke-test pattern; existing 1.0 flows must pass)
-- [ ] Security tests (authz boundaries, no leak of repo/token/keys to frontend)
+- [x] Unit tests (timeline builder, correlation, verification engine, serializers)
+- [x] Integration tests (investigation flow, git sync, API endpoints)
+- [x] AI investigation tests (mock LLM + mock Node API; schema validation of output)
+- [x] Regression tests (extend existing smoke-test pattern; existing 1.0 flows must pass)
+- [x] Security tests (authz boundaries, no leak of repo/token/keys to frontend)
 - [ ] Load tests (queue throughput at FREE/PRO/BUSINESS scale)
 
 ### Phase 10 — Production
@@ -397,10 +397,12 @@ VERIFY_FAILURE_DROP_RATIO=0.3          # min relative improvement to call PASS
 | Phase 4 smoke coverage (AI investigator, Redis-gated) | Passing — 82/82 total |
 | Phase 5 smoke coverage (code intelligence, Redis-gated) | Passing — 84/84 total |
 | Phase 6 smoke coverage (fix verification, Redis-gated) | Passing — 98/98 total |
-| Unit tests | Not started |
-| Integration tests | Not started |
-| AI investigation tests | Not started |
-| Regression coverage for 2.0 | Not started |
+| Unit + integration + security suite (Vitest, `npm test`) | Passing — **300/300 across 20 files** |
+| Unit tests (`tests/unit/*`, 14 files, 220 tests) | Passing — hmac, sanitize, ai-result-schema, auth-validators, endpoint-validators, investigation-validators, deployment-validators, constants, incident-helpers, verification-engine, investigation-worker, verify-worker, internal-service, internal-validator |
+| Integration tests (`tests/integration/*`, 5 files, 66 tests) | Passing — auth-flow, investigation-flow, deployment-flow, git-flow, regression-2.0 |
+| AI investigation tests | Passing — aiResultSchema validation, aiContext schema validation (unit) + internal AI-context endpoint incl. token guard, unknown tool, tool dispatch (regression-2.0) |
+| Regression coverage for 2.0 | Passing — 34 tests: incident timeline, similar incidents, investigation trigger/detail, deployment flow, git repos, internal AI-context, fix verification, auth edge cases |
+| Security tests (`tests/security/*`, 1 file) | Passing — authorization boundaries: endpoint/incident/investigation ownership, admin-only endpoints, unauthenticated access, token validation |
 | Frontend build check (`npm --prefix frontend run build`) | Passing — 2359 modules, vite build OK |
 | Backend startup check (`npm --prefix backend run dev`) | Passing — investigation worker + Redis connected |
 
