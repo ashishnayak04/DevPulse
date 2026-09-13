@@ -3,6 +3,8 @@ const redis = require('../lib/redis');
 const prisma = require('../lib/prisma');
 const logger = require('../lib/logger');
 const constants = require('../constants');
+const { trackWorker } = require('../lib/queue-metrics');
+const { alertQueue } = require('../queues/alert.queue');
 const { sendAlertEmail } = require('../services/email.service');
 const { generateDownEmail, generateUpEmail } = require('../templates/email-templates');
 const { deliverToAllWebhooks } = require('../services/webhook.service');
@@ -218,7 +220,7 @@ function initAlertWorker() {
   });
 
   logger.info(SCOPE, 'Started');
-  alertWorker = worker;
+  alertWorker = trackWorker({ name: 'alertQueue', queue: alertQueue, worker });
   return worker;
 }
 

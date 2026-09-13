@@ -37,6 +37,59 @@ services:
         value: https://devpulse.onrender.com
       - key: PORT
         value: "4000"
+      # DevPulse 2.0 — AI service (same shared token on both services)
+      - key: AI_SERVICE_URL
+        value: https://devpulse-ai.onrender.com
+      - key: AI_SERVICE_TOKEN
+        sync: false
+      - key: AI_PROVIDER
+        value: openai-compatible
+      - key: AI_MODEL
+        value: gpt-4o-mini
+      - key: AI_DEEP_MODEL
+        value: gpt-4o
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_BASE_URL
+        sync: false
+      - key: AI_MAX_TOOL_CALLS
+        value: "25"
+      # DevPulse 2.0 — GitHub intelligence (optional)
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_HOOK_SECRET
+        sync: false
+      # DevPulse 2.0 — Fix verification
+      - key: VERIFY_SAMPLE_MINUTES
+        value: "60"
+      - key: VERIFY_FAILURE_DROP_RATIO
+        value: "0.3"
+
+  - type: web
+    name: devpulse-ai
+    runtime: docker
+    plan: free
+    dockerfilePath: ai-service/Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      - key: AI_SERVICE_PORT
+        value: "8000"
+      - key: AI_SERVICE_TOKEN
+        sync: false
+      - key: AI_PROVIDER
+        value: openai-compatible
+      - key: AI_MODEL
+        value: gpt-4o-mini
+      - key: AI_DEEP_MODEL
+        value: gpt-4o
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_BASE_URL
+        sync: false
+      - key: AI_MAX_TOOL_CALLS
+        value: "25"
+      - key: NODE_API_URL
+        value: https://devpulse.onrender.com
 
 databases:
   - name: devpulse-db

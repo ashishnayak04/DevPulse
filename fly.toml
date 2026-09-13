@@ -10,6 +10,14 @@ processes = []
 [env]
   NODE_ENV = "production"
   PORT = "4000"
+  # DevPulse 2.0 — AI service. Set AI_SERVICE_TOKEN and AI_API_KEY via `fly secrets set`.
+  AI_SERVICE_URL = "http://devpulse-ai.fly.dev"
+  AI_PROVIDER = "openai-compatible"
+  AI_MODEL = "gpt-4o-mini"
+  AI_DEEP_MODEL = "gpt-4o"
+  AI_MAX_TOOL_CALLS = "25"
+  VERIFY_SAMPLE_MINUTES = "60"
+  VERIFY_FAILURE_DROP_RATIO = "0.3"
 
 [experimental]
   auto_rollback = true

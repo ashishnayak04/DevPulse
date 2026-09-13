@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  lint:
+    name: Lint / syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install backend deps (for prisma)
+        run: npm --prefix backend install
+      - name: Prisma schema validation
+        working-directory: backend
+        run: npx prisma validate
+      - name: Backend JS syntax check
+        run: node scripts/check-syntax.js
+      - name: AI service syntax check
+        working-directory: ai-service
+        run: python -m compileall -q app
+
+  backend-tests:
+    name: Backend tests + load tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: devpulse
+          POSTGRES_PASSWORD: devpulse
+          POSTGRES_DB: devpulse
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U devpulse"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://devpulse:devpulse@localhost:5432/devpulse
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm --prefix backend install
+      - name: Migrate database
+        working-directory: backend
+        run: npx prisma migrate deploy
+      - name: Unit + integration + security tests
+        working-directory: backend
+        run: npm test
+      - name: Load tests (queue throughput at FREE/PRO/BUSINESS scale)
+        working-directory: backend
+        run: node scripts/load-test.js
+      - name: AI service venv (for smoke test)
+        run: |
+          python -m venv ai-service/.venv
+          ai-service/.venv/bin/pip install -r ai-service/requirements.txt
+      - name: Smoke test (Redis-gated, spawns ai-service)
+        working-directory: backend
+        run: timeout 300 node scripts/smoke-test.js
+
+  frontend-build:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend install
+      - run: npm --prefix frontend run build
+
+  ai-service:
+    name: AI service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install
+        working-directory: ai-service
+        run: pip install -r requirements.txt
+      - name: Health check (mock mode)
+        working-directory: ai-service
+        env:
+          AI_SERVICE_TOKEN: ci-secret-123
+        run: |
+          nohup uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/ai.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl -fsS -H "X-DevPulse-Token: $AI_SERVICE_TOKEN" http://127.0.0.1:8000/health > /tmp/health.json 2>/dev/null; then break; fi
+            sleep 1
+          done
+          cat /tmp/health.json
+          grep -q '"mode":"mock"' /tmp/health.json
+
+  deploy:
+    name: Deploy (Render)
+    needs: [lint, backend-tests, frontend-build, ai-service]
+    if: github.ref == 'refs/heads/main' && secrets.RENDER_DEPLOY_HOOK != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy hook
+        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"

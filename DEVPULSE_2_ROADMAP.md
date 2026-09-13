@@ -177,7 +177,7 @@ Legend: `[ ]` not started · `[-]` in progress · `[x]` completed · `[!]` block
 - [x] BullMQ queue `incident:investigate` + worker
 - [x] `GET/POST /api/investigations` REST surface + ownership scoping
 - [x] AI configuration via env (provider, model, base URL, token; presence checked at worker startup, not app boot)
-- [-] Structured investigation output schema (Pydantic done in `ai-service/app/schemas.py`; Zod side landed with Phase 4 AI engine) + validation
+- [x] Structured investigation output schema (Pydantic in `ai-service/app/schemas.py`; Zod in `backend/src/schemas/ai-result.schema.js` with the Phase 4 AI engine) + validation
 
 ### Phase 2 — Git Intelligence
 - [x] Prisma models: `GitRepository`, `GitCommit`, `GitFileChange`, `Deployment`, `DeploymentCommit`
@@ -237,16 +237,16 @@ Legend: `[ ]` not started · `[-]` in progress · `[x]` completed · `[!]` block
 - [x] AI investigation tests (mock LLM + mock Node API; schema validation of output)
 - [x] Regression tests (extend existing smoke-test pattern; existing 1.0 flows must pass)
 - [x] Security tests (authz boundaries, no leak of repo/token/keys to frontend)
-- [ ] Load tests (queue throughput at FREE/PRO/BUSINESS scale)
+- [x] Load tests (queue throughput at FREE/PRO/BUSINESS scale)
 
 ### Phase 10 — Production
-- [ ] Environment configuration documented (`.env.example` additions)
-- [ ] Docker (backend + ai-service containers) + docker-compose for local dev
-- [ ] CI/CD (GitHub Actions: install, lint, migrate, test, build, deploy)
-- [ ] Monitoring/observability of investigation jobs (job counts, failures, latency)
-- [ ] Logging (structured; never log secrets/keys)
-- [ ] Error handling + retries (queue-level retry/backoff, dead-letter handling)
-- [ ] Deployment verification for Render/Fly.io/Railway/PM2
+- [x] Environment configuration documented (`.env.example` additions)
+- [x] Docker (backend + ai-service containers) + docker-compose for local dev
+- [x] CI/CD (GitHub Actions: install, lint, migrate, test, build, deploy)
+- [x] Monitoring/observability of investigation jobs (job counts, failures, latency)
+- [x] Logging (structured; never log secrets/keys)
+- [x] Error handling + retries (queue-level retry/backoff, dead-letter handling)
+- [x] Deployment verification for Render/Fly.io/Railway/PM2
 
 ---
 
@@ -403,6 +403,7 @@ VERIFY_FAILURE_DROP_RATIO=0.3          # min relative improvement to call PASS
 | AI investigation tests | Passing — aiResultSchema validation, aiContext schema validation (unit) + internal AI-context endpoint incl. token guard, unknown tool, tool dispatch (regression-2.0) |
 | Regression coverage for 2.0 | Passing — 34 tests: incident timeline, similar incidents, investigation trigger/detail, deployment flow, git repos, internal AI-context, fix verification, auth edge cases |
 | Security tests (`tests/security/*`, 1 file) | Passing — authorization boundaries: endpoint/incident/investigation ownership, admin-only endpoints, unauthenticated access, token validation |
+| Load tests (`backend/scripts/load-test.js`, Redis-gated) | Passing — 6/6: FREE (300 jobs @ ~869/s, p95 308ms), PRO (500 @ ~1126/s, p95 407ms), BUSINESS (1000 @ ~1339/s, p95 695ms); budgets ≥ plan scale and p95 ≤ 3000ms |
 | Frontend build check (`npm --prefix frontend run build`) | Passing — 2359 modules, vite build OK |
 | Backend startup check (`npm --prefix backend run dev`) | Passing — investigation worker + Redis connected |
 
@@ -410,11 +411,12 @@ VERIFY_FAILURE_DROP_RATIO=0.3          # min relative improvement to call PASS
 
 ## Known Issues
 
-- No dedicated test framework (jest/vitest) is configured — only the smoke-test script. A decision is needed: add `vitest`/`jest` for new unit tests (recommended, additive) or extend the smoke-test pattern.
+- ~~No dedicated test framework was configured~~ — resolved: Vitest adopted (`vitest.config.js`, `npm test`), 300/300 passing; load test + smoke test scripts remain for CI throughput/smoke coverage.
 - `Alert` rows are not linked to incidents; deliveries (email/webhook) are not tracked on the `Alert` row. 2.0 links them additively (nullable `incidentId`).
 - Existing incident module emits no Socket.io events; 2.0 adds `incident:investigation_started`, `incident:investigation_completed` events (additive).
 - GitHub OAuth exists for login; a separate machine `GITHUB_TOKEN` is used for repo sync to avoid coupling investigation reads to user sessions.
-- AI service is a separate process → deployment orchestrations (Docker/docker-compose, Render, Fly.io) must be updated to run it; PM2 config gains a second app entry.
+- ~~AI service is a separate process → deployment orchestrations must be updated~~ — resolved: Render Blueprint (`render.yaml`), `fly-ai.toml`, `ecosystem.config.js` (second PM2 app) and `DEPLOYMENT.md` all cover both processes.
+- Docker daemon is not running on the dev machine → the `backend/Dockerfile`, `ai-service/Dockerfile` and `docker-compose.yml` are written but not yet built/run locally; CI exercises the builds/deploy path.
 
 ---
 
@@ -444,19 +446,21 @@ VERIFY_FAILURE_DROP_RATIO=0.3          # min relative improvement to call PASS
 | 2026-09-06 | Phase 5 shipped (Code Intelligence): `get_changed_files` ranks changed files by failure-signal proximity (minutes from first failure, endpoint-token boost, `relevance` 0..1, `signalAt`) so the agent targets the file most likely implicated; `getFileContent` (backing `inspect_source_file`) gained a 5-minute in-memory TTL cache with a `cached` flag (capped size, only successful fetches); mock-mode agent now calls `get_changed_files` and inspects the top-ranked candidate source file (`inspect_source_file`) before concluding, adding a `source` evidence item and real tool-audit entries (gracefully degraded when `GITHUB_TOKEN` is unset); smoke test 84/84 PASS. |
 | 2026-09-06 | Phase 6 shipped (Fix Verification): Prisma `FixSuggestion`/`FixVerification` (migration `20260906000020_add_fix_verification_models`) materialize the investigation's suggested fix on demand; `verificationQueue` (`incident:verify`) + `verify.worker.js` detect the newest deployment since the incident started, compute before/after metrics over `VERIFY_SAMPLE_MINUTES` windows (failure count, error rate, uptime, avg/P95 latency, incident recurrence) and resolve PASS / FAILED / INCONCLUSIVE via `VERIFY_FAILURE_DROP_RATIO`, persisting `preMetrics`/`postMetrics`/`evidence` and emitting `verification:started/completed/failed` socket events; `POST /api/incidents/:id/verify` (ownership-scoped, 409 dedupe while active, `INVESTIGATION_NOT_READY`/`INVESTIGATION_NO_FIX` guards) + `GET /api/fix-verifications` (list w/ incident filter) + `GET /api/fix-verifications/:id`; completed deployments auto-queue a verification when a COMPLETED investigation with a suggested fix exists for the owner's incident; `VERIFY_SAMPLE_MINUTES`/`VERIFY_FAILURE_DROP_RATIO` config + `.env.example`; smoke test 98/98 PASS. |
 | 2026-09-09 | Phase 7+8 shipped (Historical Intelligence + Investigation UI): `GET /api/investigations/:id/similar` endpoint surfacing similar-incident search results with score/endpointMatch/timeGap; `GET /api/investigations/by-incident/:incidentId` for incident-to-investigation lookup; `getInvestigation()` enriched with `fixSuggestion` + `verifications` (deployment, pre/post metrics); InvestigationDetail page (`/incidents/:id/investigation`) with root cause analysis (confidence bar, risk badge), affected services, changed files, evidence list (FACT/INFERENCE/HYPOTHESIS chips), suggested fix + verification plan, fix verification panel (before/after metrics, PASS/FAILED/INCONCLUSIVE badge), similar incidents panel (score, endpoint match, time gap), tool call audit (collapsible); Socket.io real-time updates (`investigation:*`, `verification:*`); incidents list now links to investigation page with status indicator. |
+| 2026-09-13 | Phase 9 shipped (Load tests): `backend/scripts/load-test.js` (Redis-gated) bursts every queue at FREE/PRO/BUSINESS scale and asserts sustained throughput ≥ plan scale + p95 ≤ 3s — 6/6 PASS (FREE ~869 jobs/s p95308ms / PRO ~1126/s p95407ms / BUSINESS ~1339/s p95695ms). |
+| 2026-09-13 | Phase 10 shipped (Production): `.env.example` + `config/env.js` extended with GitHub App auth (additive & optional); `src/lib/queue-metrics.js` observability registry (job counts, dead-letter/failure tracking, p50/p95/max latency) wired via `trackWorker` into ping/alert/investigation/verify/git workers + admin `GET /api/admin/queues`; `src/lib/logger.js` rewritten for structured JSON + secret redaction (Bearer tokens, `dpk_`, `sk-`, `ghp_`, `xoxb-`), `request-id` middleware + HTTP request logger (replaced morgan), `error-handler` redacts + tags logs; queue-level retry/backoff on investigation (2) / verify (3) / git (3) queues with dead-letter tracking; `backend/Dockerfile`, `ai-service/Dockerfile`, `docker-compose.yml`, `.dockerignore`, `render.yaml` (devpulse + devpulse-ai services), `fly-ai.toml`, `ecosystem.config.js` (second `devpulse-ai` PM2 app), `DEPLOYMENT.md` (all options incl. shared `AI_SERVICE_TOKEN`); `.github/workflows/ci.yml` (lint → backend tests w/ postgres+redis+load test+smoke → frontend build → ai-service → Render deploy); ai-service `/healthz` liveness probe; smoke-test cross-platform Python discovery. Fixed `alert.worker.js` missing `alertQueue` import (boot crash). Full suite verified: Vitest 300/300, smoke 98/98, load 6/6, backend + ai-service boot OK. |
 
 ---
 
 ## Current Task
 
-Phases 7 (Historical Intelligence) and 8 (Investigation UI) shipped: `GET /api/investigations/:id/similar` endpoint surfacing similar-incident search results inside investigations; `GET /api/investigations/by-incident/:incidentId` for incident-to-investigation lookup; `getInvestigation()` now returns `fixSuggestion` + `verifications`; InvestigationDetail page at `/incidents/:id/investigation` with root cause analysis (confidence bar, risk badge), evidence list (FACT/INFERENCE/HYPOTHESIS chips), changed files, suggested fix + verification plan, fix verification (before/after metrics, PASS/FAILED/INCONCLUSIVE), similar incidents panel, tool call audit (collapsible), Socket.io real-time updates; incidents list linked to investigation page.
+Phases 9 and 10 shipped. Phase 9 — Load tests (`backend/scripts/load-test.js`): bursts FREE/PRO/BUSINESS queue throughput, asserts sustained rate ≥ plan scale and p95 ≤ 3s; 6/6 PASS locally. Phase 10 — Production hardening: docker-compose + backend/ai-service Dockerfiles + `.dockerignore`; `.github/workflows/ci.yml` (lint → backend tests with postgres/redis/load/smoke → frontend build → ai-service → Render hook); queue observability registry + admin `GET /api/admin/queues`; structured JSON logging with secret redaction + request-ids; queue retry/backoff + dead-letter tracking; deploy configs for Render (`render.yaml`, both services incl. ai-service), Fly (`fly-ai.toml`), PM2 (second `devpulse-ai` app), Railway + `DEPLOYMENT.md`; ai-service `/healthz`. All verified: Vitest 300/300, smoke 98/98, load 6/6, backend boot OK, ai-service `/healthz` OK.
 
 ## Next Task
 
-Phase 9 — Testing (unit tests, integration tests, AI investigation tests, regression tests, security tests, load tests) or Phase 10 — Production (Docker, CI/CD, monitoring, logging, error handling, deployment verification).
+Deferred / optional 2.0 items: Phase 7 incident embeddings + pgvector (gated on PostgreSQL search proving insufficient); Docker image/Compose builds to run via CI (dev machine has no Docker daemon); push to origin + open the CI pipeline so the first push runs the full workflow; once `RENDER_DEPLOY_HOOK` is set on GitHub secrets, `main` auto-deploys.
 
 ---
 
 ## Last Updated
 
-2026-09-09
+2026-09-13

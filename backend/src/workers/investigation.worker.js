@@ -2,6 +2,8 @@ const { Worker } = require('bullmq');
 const redis = require('../lib/redis');
 const prisma = require('../lib/prisma');
 const logger = require('../lib/logger');
+const { trackWorker } = require('../lib/queue-metrics');
+const { investigationQueue } = require('../queues/investigation.queue');
 const {
   aiConfigured,
   checkAiHealth,
@@ -208,7 +210,7 @@ function initInvestigationWorker(io) {
   });
 
   logger.info(SCOPE, 'Started');
-  investigationWorker = worker;
+  investigationWorker = trackWorker({ name: 'investigationQueue', queue: investigationQueue, worker });
   return worker;
 }
 

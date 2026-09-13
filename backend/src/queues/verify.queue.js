@@ -19,6 +19,8 @@ async function enqueueVerification({ incidentId, endpointId, fixSuggestionId, us
     { incidentId, endpointId, fixSuggestionId, userId },
     {
       jobId,
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 3000 },
       removeOnComplete: { count: 20 },
       removeOnFail: { count: 10 },
     }

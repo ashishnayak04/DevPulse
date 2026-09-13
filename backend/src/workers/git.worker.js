@@ -3,6 +3,8 @@ const redis = require('../lib/redis');
 const prisma = require('../lib/prisma');
 const logger = require('../lib/logger');
 const config = require('../config/env');
+const { trackWorker } = require('../lib/queue-metrics');
+const { gitQueue } = require('../queues/git.queue');
 const {
   githubConfigured,
   listRepositoryCommits,
@@ -179,7 +181,7 @@ function initGitWorker(io) {
   });
 
   logger.info(SCOPE, 'Started');
-  gitWorker = worker;
+  gitWorker = trackWorker({ name: 'gitQueue', queue: gitQueue, worker });
   return worker;
 }
 

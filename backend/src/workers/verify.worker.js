@@ -3,6 +3,8 @@ const redis = require('../lib/redis');
 const prisma = require('../lib/prisma');
 const logger = require('../lib/logger');
 const config = require('../config/env');
+const { trackWorker } = require('../lib/queue-metrics');
+const { verificationQueue } = require('../queues/verify.queue');
 
 const SCOPE = 'VerificationWorker';
 
@@ -223,7 +225,7 @@ function initVerificationWorker(io) {
   });
 
   logger.info(SCOPE, 'Started');
-  verificationWorker = worker;
+  verificationWorker = trackWorker({ name: 'verificationQueue', queue: verificationQueue, worker });
   return worker;
 }
 

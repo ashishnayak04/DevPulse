@@ -3,15 +3,16 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const helmet = require('helmet');
-const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const passport = require('passport');
 
 require('./config/passport');
 
 const config = require('./config/env');
+const logger = require('./lib/logger');
 const { apiLimiter } = require('./middleware/rate-limiters');
 const { errorHandler } = require('./middleware/error-handler');
+const { requestId } = require('./middleware/request-id');
 
 const authRoutes = require('./modules/auth/auth.routes');
 const accountRoutes = require('./modules/auth/account.routes');
@@ -46,7 +47,15 @@ function createApp() {
     })
   );
   app.use(cors({ origin: config.frontendUrl, credentials: true }));
-  app.use(morgan('dev'));
+  app.use(requestId);
+  app.use((req, res, next) => {
+    const start = process.hrtime.bigint();
+    res.on('finish', () => {
+      const ms = Number(process.hrtime.bigint() - start) / 1e6;
+      logger.info('HTTP', `${req.method} ${req.originalUrl} -> ${res.statusCode} (${ms.toFixed(1)}ms) request=${req.id}`);
+    });
+    next();
+  });
   app.use(cookieParser());
   // GitHub webhooks must see the raw body (Buffer) for HMAC signature verification.
   // Registered before express.json so it wins on the /api/github/hooks path only.

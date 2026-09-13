@@ -1,4 +1,5 @@
 const adminService = require('./admin.service');
+const { getQueuesReport } = require('../../lib/queue-metrics');
 
 async function overview(req, res, next) {
   try {
@@ -99,6 +100,15 @@ async function listActivity(req, res, next) {
   }
 }
 
+async function queueMetrics(_req, res, next) {
+  try {
+    const data = await getQueuesReport();
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   overview,
   listUsers,
@@ -111,4 +121,5 @@ module.exports = {
   listActivity,
   toggleMonitoring,
   listAuditLogs,
+  queueMetrics,
 };

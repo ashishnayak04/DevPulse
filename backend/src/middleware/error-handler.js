@@ -1,7 +1,7 @@
 const logger = require('../lib/logger');
 
 function errorHandler(err, req, res, _next) {
-  logger.error('Error', err.stack || err.message);
+  logger.error('Error', logger.redact(err.stack || err.message), { requestId: req.id });
 
   if (err.code === 'P2002') {
     return res.status(409).json({

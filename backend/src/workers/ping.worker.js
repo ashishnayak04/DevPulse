@@ -5,6 +5,8 @@ const prisma = require('../lib/prisma');
 const redis = require('../lib/redis');
 const logger = require('../lib/logger');
 const constants = require('../constants');
+const { trackWorker } = require('../lib/queue-metrics');
+const { pingQueue } = require('../queues/ping.queue');
 const { alertQueue } = require('../queues/alert.queue');
 const { enqueueInvestigation } = require('../queues/investigation.queue');
 const { enqueueGitSync } = require('../queues/git.queue');
@@ -313,7 +315,7 @@ function initPingWorker(io) {
   });
 
   logger.info(SCOPE, 'Started');
-  pingWorker = worker;
+  pingWorker = trackWorker({ name: 'pingQueue', queue: pingQueue, worker });
   return worker;
 }
 

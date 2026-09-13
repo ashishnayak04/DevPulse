@@ -26,5 +26,6 @@ router.get('/endpoints', adminController.listEndpoints);
 router.get('/activity', adminController.listActivity);
 router.patch('/system/monitoring', validate(monitoringToggleSchema), adminController.toggleMonitoring);
 router.get('/audit', adminController.listAuditLogs);
+router.get('/queues', adminController.queueMetrics);
 
 module.exports = router;

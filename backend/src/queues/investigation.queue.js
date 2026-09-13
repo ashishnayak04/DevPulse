@@ -21,6 +21,8 @@ async function enqueueInvestigation({ incidentId, endpointId, userId }) {
     { incidentId, endpointId, userId },
     {
       jobId,
+      attempts: 2,
+      backoff: { type: 'exponential', delay: 3000 },
       removeOnComplete: { count: 20 },
       removeOnFail: { count: 10 },
     }

@@ -1,0 +1,102 @@
+# DevPulse 2.0 — local development stack.
+#   docker compose up --build
+#
+# Provisions PostgreSQL, Redis, the Node/Express backend (with built React UI)
+# and the Python AI service. All secrets come from the host environment or the
+# shell; nothing secret is baked into the images (see .dockerignore).
+name: devpulse
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: devpulse
+      POSTGRES_PASSWORD: devpulse
+      POSTGRES_DB: devpulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devpulse"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", ""]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: ai-service/Dockerfile
+    environment:
+      AI_SERVICE_PORT: "8000"
+      AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-replace-with-a-shared-devpulse-secret}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
+      AI_DEEP_MODEL: ${AI_DEEP_MODEL:-gpt-4o}
+      AI_MAX_TOOL_CALLS: ${AI_MAX_TOOL_CALLS:-25}
+      NODE_API_URL: http://web:4000
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      DATABASE_URL: postgresql://devpulse:devpulse@postgres:5432/devpulse
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-replace-with-a-random-secret}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-replace-with-another-random-secret}
+      BASE_URL: http://localhost:4000
+      FRONTEND_URL: http://localhost:4000
+      LOG_FORMAT: json
+      # DevPulse 2.0 — AI service
+      AI_SERVICE_URL: http://ai-service:8000
+      AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-replace-with-a-shared-devpulse-secret}
+      AI_PROVIDER: ${AI_PROVIDER:-openai-compatible}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
+      AI_DEEP_MODEL: ${AI_DEEP_MODEL:-gpt-4o}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MAX_TOOL_CALLS: ${AI_MAX_TOOL_CALLS:-25}
+      # DevPulse 2.0 — GitHub (optional)
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_HOOK_SECRET: ${GITHUB_HOOK_SECRET:-}
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
+      # DevPulse 2.0 — Fix verification
+      VERIFY_SAMPLE_MINUTES: ${VERIFY_SAMPLE_MINUTES:-60}
+      VERIFY_FAILURE_DROP_RATIO: ${VERIFY_FAILURE_DROP_RATIO:-0.3}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/api/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+
+volumes:
+  pgdata:
+  redisdata:

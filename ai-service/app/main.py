@@ -37,6 +37,13 @@ async def health(_: None = Depends(require_service_token)):
     }
 
 
+@app.get("/healthz")
+async def healthz():
+    # Liveness for load balancers / orchestrators. No data, no auth — aimed only
+    # at infra probes. Nothing secret is exposed here.
+    return {"status": "ok", "service": "ai-service", "version": app.version}
+
+
 @app.post("/investigate")
 async def investigate(
     request: InvestigateRequest,

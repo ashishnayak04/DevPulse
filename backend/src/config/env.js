@@ -44,6 +44,8 @@ const config = {
 
   github: {
     token: process.env.GITHUB_TOKEN,
+    appId: process.env.GITHUB_APP_ID,
+    appPrivateKey: process.env.GITHUB_APP_PRIVATE_KEY,
     hookSecret: process.env.GITHUB_HOOK_SECRET,
     perPage: toInt(process.env.GITHUB_PER_PAGE, 50),
     maxCommitFetch: toInt(process.env.GITHUB_MAX_COMMIT_FETCH, 50),

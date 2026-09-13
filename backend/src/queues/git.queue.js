@@ -13,6 +13,8 @@ async function enqueueGitSync({ repositoryId, userId, fullName, reason }) {
     { repositoryId, userId, fullName, reason },
     {
       jobId: buildGitSyncJobId(repositoryId),
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 3000 },
       removeOnComplete: { count: 20 },
       removeOnFail: { count: 10 },
     }

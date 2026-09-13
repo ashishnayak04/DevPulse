@@ -1,5 +1,6 @@
 const http = require('http');
 const path = require('path');
+const fs = require('fs');
 const { spawn } = require('child_process');
 const constants = require('../src/constants');
 constants.rateLimit.authMaxRequestsPerMinute = 10000;
@@ -71,10 +72,19 @@ function rawRequest(port, p, headers = {}) {
   });
 }
 
+function aiPythonPath() {
+  const base = path.join(__dirname, '..', '..', 'ai-service', '.venv');
+  const candidate =
+    process.platform === 'win32'
+      ? path.join(base, 'Scripts', 'python.exe')
+      : path.join(base, 'bin', 'python');
+  if (fs.existsSync(candidate)) return candidate;
+  return process.platform === 'win32' ? 'python' : 'python3';
+}
+
 function spawnAiService() {
-  const aiPython = path.join(__dirname, '..', '..', 'ai-service', '.venv', 'Scripts', 'python.exe');
   return spawn(
-    aiPython,
+    aiPythonPath(),
     ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', String(AI_PORT)],
     {
       cwd: path.join(__dirname, '..', '..', 'ai-service'),
