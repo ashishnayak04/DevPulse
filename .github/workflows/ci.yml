@@ -84,21 +84,25 @@ jobs:
         continue-on-error: true
         working-directory: backend
         run: npm test 2>&1 | tee test.log
-      - name: Publish test failure annotations
-        if: always() && steps.tests.conclusion == 'failure'
-        working-directory: backend
-        run: |
-          node -e "const fs=require('fs'); const s=fs.readFileSync('test.log','utf8'); const fails=(s.match(/FAIL .*/g)||[]).slice(0,25); const head=[...fails]; const blocks=(s.match(/FAIL [\s\S]{0,1500}/g)||[]).slice(0,2).map(b=>b.split('\n').slice(0,40).join('\n')); const body=(head.length||blocks.length)?(head.join('\n')+'\n=====BLOCKS=====\n'+blocks.join('\n=====\n')):('NO FAIL LINES. EXCERPT:\n'+s.slice(-3000)); process.stdout.write('::error::'+(body.replace(/%/g,'%25').replace(/\r/g,'').replace(/\n/g,'%0A')).slice(0,60000));"
       - name: Load tests (queue throughput at FREE/PRO/BUSINESS scale)
+        id: load
+        continue-on-error: true
         working-directory: backend
-        run: node scripts/load-test.js
+        run: node scripts/load-test.js 2>&1 | tee load.log
       - name: AI service venv (for smoke test)
         run: |
           python -m venv ai-service/.venv
           ai-service/.venv/bin/pip install -r ai-service/requirements.txt
       - name: Smoke test (Redis-gated, spawns ai-service)
+        id: smoke
+        continue-on-error: true
         working-directory: backend
-        run: timeout 300 node scripts/smoke-test.js
+        run: timeout 300 node scripts/smoke-test.js 2>&1 | tee smoke.log
+      - name: Publish failure annotations
+        if: always()
+        working-directory: backend
+        run: |
+          node -e "const fs=require('fs'); const logs=['test.log','load.log','smoke.log']; const esc=t=>t.replace(/%/g,'%25').replace(/\r/g,'').replace(/\n/g,'%0A'); for (const f of logs){ let s; try{ s=fs.readFileSync(f,'utf8'); }catch{ continue; } const hits=(s.match(/.*(?:FAIL|AssertionError|✕|×|Error:|ERROR|PASS|RESULT).*/g)||[]).slice(0,40); const body=hits.length?hits.join('\n'):s.slice(-1500); process.stdout.write('::error::['+f+'] '+esc(body).slice(0,24000)+'\n'); }"
 
   frontend-build:
     name: Frontend build
