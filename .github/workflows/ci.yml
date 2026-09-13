@@ -85,7 +85,7 @@ jobs:
         working-directory: backend
         run: npm test 2>&1 | tee test.log
       - name: Publish test failure annotations
-        if: always() && steps.tests.outcome == 'failure'
+        if: always() && steps.tests.conclusion == 'failure'
         working-directory: backend
         run: |
           node -e "const fs=require('fs'); const s=fs.readFileSync('test.log','utf8'); const fails=(s.match(/FAIL .*/g)||[]).slice(0,25); const head=[...fails]; const blocks=(s.match(/FAIL [\s\S]{0,1500}/g)||[]).slice(0,2).map(b=>b.split('\n').slice(0,40).join('\n')); const body=(head.length||blocks.length)?(head.join('\n')+'\n=====BLOCKS=====\n'+blocks.join('\n=====\n')):('NO FAIL LINES. EXCERPT:\n'+s.slice(-3000)); process.stdout.write('::error::'+(body.replace(/%/g,'%25').replace(/\r/g,'').replace(/\n/g,'%0A')).slice(0,60000));"
