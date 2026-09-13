@@ -129,8 +129,9 @@ jobs:
   deploy:
     name: Deploy (Render)
     needs: [lint, backend-tests, frontend-build, ai-service]
-    if: github.ref == 'refs/heads/main' && secrets.RENDER_DEPLOY_HOOK != ''
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Render deploy hook
+        if: ${{ secrets.RENDER_DEPLOY_HOOK != '' }}
         run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
