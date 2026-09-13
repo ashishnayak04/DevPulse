@@ -76,33 +76,39 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm --prefix backend install
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate
       - name: Migrate database
         working-directory: backend
         run: npx prisma migrate deploy
       - name: Unit + integration + security tests
         id: tests
-        continue-on-error: true
         working-directory: backend
-        run: npm test 2>&1 | tee test.log
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee test.log
       - name: Load tests (queue throughput at FREE/PRO/BUSINESS scale)
         id: load
-        continue-on-error: true
         working-directory: backend
-        run: node scripts/load-test.js 2>&1 | tee load.log
+        run: |
+          set -o pipefail
+          node scripts/load-test.js 2>&1 | tee load.log
       - name: AI service venv (for smoke test)
         run: |
           python -m venv ai-service/.venv
           ai-service/.venv/bin/pip install -r ai-service/requirements.txt
       - name: Smoke test (Redis-gated, spawns ai-service)
         id: smoke
-        continue-on-error: true
-        working-directory: backend
-        run: timeout 300 node scripts/smoke-test.js 2>&1 | tee smoke.log
-      - name: Publish failure annotations
-        if: always()
         working-directory: backend
         run: |
-          node -e "const fs=require('fs'); const logs=['test.log','load.log','smoke.log']; const esc=t=>t.replace(/%/g,'%25').replace(/\r/g,'').replace(/\n/g,'%0A'); for (const f of logs){ let s; try{ s=fs.readFileSync(f,'utf8'); }catch{ continue; } const hits=(s.match(/.*(?:FAIL|AssertionError|✕|×|Error:|ERROR|PASS|RESULT).*/g)||[]).slice(0,40); const body=hits.length?hits.join('\n'):s.slice(-1500); process.stdout.write('::error::['+f+'] '+esc(body).slice(0,24000)+'\n'); }"
+          set -o pipefail
+          timeout 300 node scripts/smoke-test.js 2>&1 | tee smoke.log
+      - name: Publish failure annotations
+        if: always() && (steps.tests.conclusion == 'failure' || steps.load.conclusion == 'failure' || steps.smoke.conclusion == 'failure')
+        working-directory: backend
+        run: |
+          node -e "const fs=require('fs'); const logs=['test.log','load.log','smoke.log']; const esc=t=>t.replace(/%/g,'%25').replace(/\r/g,'').replace(/\n/g,'%0A'); const rx=/ FAIL |[×✕]|Error:|AssertionError|expected|RESULT:|PASS  [A-Z]/; for (const f of logs){ let s; try{ s=fs.readFileSync(f,'utf8'); }catch{ continue; } const hits=(s.split('\n').filter(l=>rx.test(l))||[]).slice(0,60); const body=hits.length?hits.join('\n'):s.slice(-1500); process.stdout.write('::error::['+f+'] '+esc(body).slice(0,24000)+'\n'); }"
 
   frontend-build:
     name: Frontend build
