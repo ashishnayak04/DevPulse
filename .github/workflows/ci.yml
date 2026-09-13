@@ -18,6 +18,8 @@ jobs:
   lint:
     name: Lint / syntax
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://devpulse:devpulse@localhost:5432/devpulse
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -64,6 +66,8 @@ jobs:
     env:
       DATABASE_URL: postgresql://devpulse:devpulse@localhost:5432/devpulse
       REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-jwt-secret-0123456789abcdef
+      JWT_REFRESH_SECRET: ci-jwt-refresh-secret-0123456789abcdef
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
